@@ -1,0 +1,11 @@
+<svg id="main-background" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 682" preserveAspectRatio="XMidYMid">
+    <defs>
+        <filter id="filter">
+            <feTurbulence baseFrequency="0.02" numOctaves="4" type="fractalNoise" result="result1" />
+            <feDisplacementMap in2="result1" scale="50" result="result2" xChannelSelector="R" in="SourceGraphic" />
+        </filter>
+        <mask id="rugged-mask">
+            <rect fill="#fff" filter="url(#filter)" width="100%" height="100%" x="0" y="0" />
+        </mask>
+    </defs>
+</svg>
