@@ -6,8 +6,8 @@
 @import '@fontsource-variable/inter';/*/slnt.css';*/
 
 :root {
-	--font-body: 'Noto Color Emoji', 'Inter Variable', sans-serif;
-	--font-heading: 'Noto Color Emoji', 'Bitter Variable', serif;
+	--font-body: 'Inter Variable', 'Noto Color Emoji', sans-serif;
+	--font-heading: 'Bitter Variable', 'Noto Color Emoji', serif;
 	--font-mono: 'Noto Emoji Variable', 'Fira Mono', monospace;
 	--beige: #e3e3caff;
 	--tea-green: #c7d6b2ff;
@@ -23,26 +23,7 @@
 	color: var(--black);
 }
 
-body {
-	display: flex;
-	justify-content: center;
-	align-items: start;
-	gap: 3em;
-	padding: 10em 0;
-	background-image: linear-gradient(rgb(10, 10, 10), 15rem, rgb(125, 125, 125)),
-			url('$lib/images/botanical-pattern.jpg');
-	background-blend-mode: multiply;
-	min-height: 150vh;
-	margin: 0;
-	background-size: 30rem;
-	background-repeat: repeat;
-}
-
-h1 {
+h1{
 	font-size: 2.5em;
 	font-family: var(--font-heading)
-}
-
-@media (min-width: 720px) {
-	
 }
