@@ -1,6 +1,7 @@
 <script>
 	import Navigation from '../../Navigation.svelte';
-	export let data;
+	import Library from './Library.svelte'
+	// export let data;
 </script>
 
 <svelte:head>
@@ -8,10 +9,14 @@
 	<meta name="description" content="Home page" />
 </svelte:head>
 
+<Library>
 <div class="picture-frame">
 	<main>
 		<h1>Welcome to the Library!</h1>
 		<p>Here you can find all kinds of articles, from blog posts to personal articles, and from notes to wiki pages.</p>
+		<br>
+		<!-- <p>{data.params.article}</p> -->
+		<a href="/">paprika.live</a>
 	</main>
 </div>
 
@@ -19,22 +24,23 @@
 	<div class="bolt"></div>
 	<aside>
 		<p id="info-authors">
-			<a class="tag" href="#">@cronch</a>,
-			<a class="tag" href="#">@somebody-else</a> and
-			<a class="tag" href="#">@me</a>
+			<a class="tag" href="#info-authors">@cronch</a>,
+			<a class="tag" href="#info-authors">@somebody-else</a> and
+			<a class="tag" href="#info-authors">@me</a>
 		</p>
 		<h2 id="info-title">Library Introduction</h2>
 		<p id="info-subtitle"><span id="info-time" title="last modified 2024-8-6T7:45:15+07:00">2024-8-6T7:45:15+07:00</span></p>
 		<p>HTML; text on canvas</p>
 		<br>
 		<p id="info-tags">
-			<a class="tag" href="#">#meta</a>,
-			<a class="tag" href="#">#library</a>,
-			<a class="tag" href="#">#welcome</a>
+			<a class="tag" href="#info-authors">#meta</a>,
+			<a class="tag" href="#info-authors">#library</a>,
+			<a class="tag" href="#info-authors">#welcome</a>
 		</p>
 	</aside>
 	<div class="bolt"></div>
 </div>
+</Library>
 
 <style>
 
@@ -102,13 +108,18 @@
 		border-radius: 3px;
 	}
 
+	main * {
+		pointer-events: auto;
+	}
+
 	main {
 		padding: 2.5em 3em;
 		width: 100%;
 		height: 100%;
-		max-height:100%;
-		max-width:100%;
 		margin: 0;
+		background-image: url("$lib/images/canvas-texture.avif");
+		background-size: 35em;
+		pointer-events: auto;
 	}
 
 	main::before{
@@ -118,10 +129,7 @@
 		top: 0;
 		width : 100%;
 		height: 100%;
-		background-image: url("$lib/images/canvas-texture.avif");
-		background-size: 30em;
-		filter: saturation(50%);
-		z-index: -1;
+		pointer-events: none;
 	}
 
 	.picture-frame {
@@ -138,6 +146,7 @@
 		position:relative;
 		pointer-events: none;
 	}
+	
 	.picture-frame::before {
 		border-radius:2px;
 		bottom:-2vmin;
@@ -147,7 +156,9 @@
 		position:absolute;
 		right:-2vmin;
 		top:-2vmin;
+		pointer-events: none;
 	}
+
 	.picture-frame::after {
 		border-radius:2px;
 		bottom:-2.5vmin;
@@ -157,6 +168,7 @@
 		position:absolute;
 		right:-2.5vmin;
 		top:-2.5vmin;
+		pointer-events: none;
 	}
 
 	h1 {
@@ -166,21 +178,4 @@
 	p {
 		font-weight: 500;
 	}
-
-	:global(body) {
-		overflow-x: hidden;
-		display: flex;
-		justify-content: center;
-		align-items: start;
-		gap: 3em;
-		padding: 10em 0;
-		background-image: linear-gradient(rgb(10, 10, 10), 15rem, rgb(125, 125, 125)),
-				url('$lib/images/botanical-pattern.jpg');
-		background-blend-mode: multiply;
-		min-height: 150vh;
-		margin: 0;
-		background-size: 30rem;
-		background-repeat: repeat;
-	}
-
 </style>
