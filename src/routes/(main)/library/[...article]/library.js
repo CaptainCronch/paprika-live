@@ -1,18 +1,19 @@
 import { LIBRARY_PATH } from "$env/static/private"
 import Database from 'better-sqlite3';
-import NTP from 'ntp-time';
+import { v4 as uuidv4 } from 'uuid';
 // const options = {};
 export const DB = new Database(LIBRARY_PATH/*, options*/);
 DB.pragma('journal_mode = WAL');
 DB.pragma('foreign_keys = TRUE');
 
-const TIME = new NTP.Client();
+const SECRET_CHARACTERS = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz" // base52
+const SECRET_LENGTH = 12
 
 /*
 === MAIN ===
 
 page: search for text to find id to search through revisions to find latest. tracks page deletion and whether it is open for public editing.
-    page_id, title, folder_id, is_deleted, is_open
+    page_id, title, date, folder_id, is_deleted, is_open, is_private, secret_code
 
 text: contains whole text for one revision. grab this when using revision.
     text_id, text
@@ -21,7 +22,7 @@ tag: used to categorize pages and get collections of them.
     tag_id, name
 
 user: marks comment authors, revision writers, media uploaders, and who is allowed to edit a page. (admins can perform various authoritative actions.)
-    user_id, name, join_date, is_admin
+    user_id (uuidv4), name, join_date, is_admin, is_suspended
 
 media: marks uploader and filenames.
     media_id, filename, user_id
@@ -30,7 +31,7 @@ folder: used to categorize pages in a hierarchy. folders can contain other folde
     folder_id, name, parent
 
 comment: contains its own text content, a posting date, an optional comment that it replies to, id of which page it is on, and the user that posted it.
-    comment_id, text, date, parent, page_id, user_id
+    comment_id, text, date, parent, page_id, user_id, is_deleted
 
 revision: tracks edit date, page it belongs to, whole text content, containing folder, and author.
     revision_id, date, page_id, text_id, user_id
@@ -41,7 +42,10 @@ stat: contains various library-wide statistics. records snapshots over time.
 
 === JOIN TABLES ===
 
-user_page: denotes what users are allowed to edit each page.
+editor_page: denotes what users are allowed to edit each page.
+    user_id, page_id
+
+viewer_page: denotes what users are allowed to view each page.
     user_id, page_id
 
 page_tag: denotes what tags are in each page.
@@ -51,24 +55,40 @@ media_revision: denotes what media files are used by each revision.
     media_id, revision_id
 */
 
-function newPage(pageTitle, allowedEditors, folderName, tags, content, isOpen, authorID, mediaIDs) { // TODO: create tag if it doesn't exist
-    if (getPageIDByTitle(pageTitle) === undefined) {return {okay: false, reason: "Name Taken", value: pageTitle}}
+// TODO: Stat tracking on post/delete functions
+
+/*
+=== POST FUNCTIONS ===
+*/
+
+function postPage(pageTitle, allowedEditors, allowedViewers, folderName, tags, content, isOpen, isPrivate, authorID, mediaIDs) {
+    if (getPageIDByTitle(pageTitle) === undefined) {return {okay: false, reason: "Name taken", value: pageTitle}}
 
     let editorIDs = []
     allowedEditors.forEach(editor => {
         let userResult = getUserIDByName(editor)
         if (userResult === undefined) {
-            return {okay: false, reason: "Invalid User", value: editor}
+            return {okay: false, reason: "Invalid editor", value: editor}
         } else {
             editorIDs.push(userResult)
         }
     })
 
+    let viewerIDs = []
+    allowedViewers.forEach(viewer => {
+        let userResult = getUserIDByName(viewer)
+        if (userResult === undefined) {
+            return {okay: false, reason: "Invalid viewer", value: viewer}
+        } else {
+            viewerIDs.push(userResult)
+        }
+    })
+
     let tagIDs = []
-    tags.forEach(tag => {
+    tags.forEach(tag => { // creates new tag if input is invalid
         let tagResult = getTagIDByName(tag)
         if (tagResult === undefined) {
-            return {okay: false, reason: "Invalid Tag", value: tag} // TODO: create tag if it doesn't exist
+            tagIDs.push(DB.prepare(`INSERT INTO tag (name) VALUES('?');`).run(tag).lastInsertRowid)
         } else {
             tagIDs.push(tagResult)
         }
@@ -77,24 +97,27 @@ function newPage(pageTitle, allowedEditors, folderName, tags, content, isOpen, a
     let folderID = getFolderIDByName(folderName)
     if (folderID === undefined) {return {okay: false, reason: "Invalid Folder", value: folderName}}
 
-    DB.prepare(`INSERT INTO page (title, folder_id, is_deleted, is_open) VALUES('?', ?, 0, ?);`).run(pageTitle, folderID, isOpen)
+    let pageID =  DB.prepare(`INSERT INTO page (title, date, folder_id, is_deleted, is_open, is_private, secret_code) VALUES('?', '?', ?, 0, ?, ?);`)
+            .run(pageTitle, getUniversalTime(), folderID, isOpen, isPrivate, generateBase58String()).lastInsertRowid
 
-    let pageID = getPageIDByTitle(pageTitle)
+    editorIDs.forEach(editorID => {
+        DB.prepare(`INSERT INTO editor_page (user_id, page_id) VALUES('?', ?);`).run(editorID, pageID)
+    })
 
-    userIDs.forEach(userID => {
-        DB.prepare(`INSERT INTO user_page (user_id, page_id) VALUES('?', ?)`).run(userID, pageID)
+    viewerIDs.forEach(viewerID => {
+        DB.prepare(`INSERT INTO viewer_page (user_id, page_id) VALUES('?', ?);`).run(viewerID, pageID)
     })
 
     tagIDs.forEach(tagID => {
-        DB.prepare(`INSERT INTO page_tag (page_id, tag_id) VALUES('?', ?)`).run(pageID, tagID)
+        DB.prepare(`INSERT INTO page_tag (page_id, tag_id) VALUES('?', ?);`).run(pageID, tagID)
     })
 
-    let revisionResult = newRevision(pageID, content, authorID, mediaIDs)
+    let revisionResult = postRevision(pageID, content, authorID, mediaIDs)
     if (!revisionResult.okay) {return revisionResult}
     else {return {okay: true}}
 }
 
-function newRevision(pageID, content, authorID, mediaIDs) { // revision_id, date, page_id, text_id, author_id (media_revision)
+function postRevision(pageID, content, authorID, mediaIDs) { // TODO: validate text content
     if (!validatePage(pageID)) {return {okay: false, reason: "Invalid Page", value: pageID}}
 
     if (!validateUser(authorID)) {return {okay: false, reason: "Invalid User", value: authorID}}
@@ -103,19 +126,78 @@ function newRevision(pageID, content, authorID, mediaIDs) { // revision_id, date
         if (!validateMedia(mediaID)) {return {okay: false, reasion: "Invalid Media", value: mediaID}}
     })
 
-    let textID = DB.prepare(`INSERT INTO text (text) VALUES('?')`).run(content).lastInsertRowid
+    let textID = DB.prepare(`INSERT INTO text (text) VALUES('?');`).run(content).lastInsertRowid
 
-    let date
+    let revisionID = DB.prepare(`INSERT INTO revision (date, page_id, text_id, user_id) VALUES('?', ?, ?, '?');`).run(getUniversalTime(), pageID, textID, authorID).lastInsertRowid
 
-    TIME.syncTime().then(time => date = time).catch(
-        TIME.syncTime().then(time => date = time).catch(
+    mediaIDs.forEach(mediaID => {
+        DB.prepare(`INSERT INTO media_revision (media_id, revision_id) VALUES(?, ?);`).run(mediaID, revisionID)
+    })
 
-        )
-    )
+    return {okay: true}
+}
 
-    DB.prepare(`INSERT INTO revision (date, page_id, text_id, user_id)`).run()
+function postTag(tagName) {
+    if (getTagIDByName(tagName) !== undefined) {return {okay: false, reason: "Tag already exists"}}
+    DB.prepare(`INSERT INTO tag (name) VALUES('?');`).run(tagName)
 
+    return {okay: true}
+}
+
+function postFolder(folderName, parentFolder = null) {
+    if (validateFolderName(folderName, parentFolder) !== undefined) {return {okay: false, reason: "Folder already exists"}}
+    DB.prepare(`INSERT INTO tag (name) VALUES('?', ?);`).run(folderName, parentFolder)
+
+    return {okay: true}
+}
+
+function postComment(content, parentCommentID = null, pageID, authorID) {
+    if (!validateComment(content, parentCommentID, pageID, authorID)) {return {okay: false, reason: "Comment already exists"}}
+    DB.prepare(`INSERT INTO comment (text, date, parent, page_id, user_id, is_deleted) VALUES('?', '?', ?, ?, '?', 0);`)
+            .run(content, getUniversalTime(), parentCommentID, pageID, authorID)
     
+    return {okay: true}
+}
+
+/*
+=== GET FUNCTIONS ===
+*/
+
+/*
+=== PUT FUNCTIONS ===
+*/
+
+/*
+=== DELETE FUNCTIONS ===
+*/
+
+/*
+=== HELPER FUNCTIONS ===
+*/
+
+function getUniversalTime() { // returns YYYY-MM-DDTHH:MM:SS.000000, "N/A" if both time APIs fail
+    let time
+
+    fetch("https://timeapi.io/api/time/current/zone?timeZone=UTC")
+    .then(response => {
+        if (response.ok){
+            return response.json()
+        }
+        return Promise.reject(response)
+    })
+    .then(body => time = body.dateTime.slice(0, -1)) // timeapi.io's response has one more milisecond character than worldtimeapi.org's
+    .catch(function() {
+        fetch("http://worldtimeapi.org/api/timezone/UTC")
+        .then(response => {
+            if (response.ok){
+                return response.json()
+            }
+            return Promise.reject(response)
+        })
+        .then(body => time = body.datetime.slice(0, -6)) // worldtimeapi.org's response has the redundant UTC offset included (+00:00)
+        .catch(function() {time = "N/A"})
+    })
+    return time
 }
 
 function getPageIDByTitle(pageTitle) { // undefined if page does NOT exist, returns page primary key
@@ -133,9 +215,9 @@ function getFolderIDByName(folderName) { // undefined if folder does NOT exist, 
     return result.folder_id
 }
 
-function validateFolder(folderID) { // false if folder does NOT exist
-    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM folder WHERE folder_id = ?);`).get(folderID)
-    return result['EXISTS(SELECT 1 FROM folder WHERE folder_id = ?)'] === 1;
+function validateFolderName(folderName, parentID) { // false if folder name does NOT exist with same parent
+    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM folder WHERE name = '?' AND parent = ?);`).get(folderID)
+    return result[`EXISTS(SELECT 1 FROM folder WHERE folder_id = ?)`] === 1;
 }
 
 function getTagIDByName(tagName) { // undefined if tag does NOT exist, returns tag primary key
@@ -154,8 +236,25 @@ function getUserIDByName(userName) { // undefined if user does NOT exist, return
 }
 
 function validateUser(userID) { // false if user does NOT exist
-    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM user WHERE user_id = ?);`).get(userID)
-    return result['EXISTS(SELECT 1 FROM user WHERE user_id = ?)'] === 1;
+    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM user WHERE user_id = '?');`).get(userID)
+    return result[`EXISTS(SELECT 1 FROM user WHERE user_id = '?')`] === 1;
+}
+
+function validateComment(content, parentCommentID, pageID, authorID) { // false if comment exists with same content, parent, page, and author
+    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM comment WHERE text = '?' AND parent = ? AND page_id = ? AND user_id = '?');`)
+            .get(content, parentCommentID, pageID, authorID)
+    return result[`EXISTS(SELECT 1 FROM comment WHERE text = '?' AND parent = ? AND page_id = ? AND user_id = '?')`] === 0;
+}
+
+function generateBase58String(size = SECRET_LENGTH) {
+    if (size <= 0) {return ""}
+    let output = []
+    
+    for (let i = 0; i < size; i++) {
+        output.push(SECRET_CHARACTERS.charAt(Math.floor(Math.random() * SECRET_CHARACTERS.length)))
+    }
+
+    return output.join('')
 }
 
 const SETUP_TABLES = [
@@ -163,9 +262,12 @@ const SETUP_TABLES = [
         CREATE TABLE IF NOT EXISTS page (
             page_id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL UNIQUE,
+            date TEXT NOT NULL,
             folder_id INTEGER NOT NULL,
             is_deleted INTEGER NOT NULL DEFAULT 0,
             is_open INTEGER NOT NULL DEFAULT 0,
+            is_private INTEGER NOT NULL DEFAULT 0,
+            secret_code TEXT NOT NULL,
             FOREIGN KEY (folder_id) REFERENCES folder (folder_id)
         );
     `),
@@ -186,14 +288,15 @@ const SETUP_TABLES = [
             user_id TEXT NOT NULL UNIQUE,
             name TEXT NOT NULL UNIQUE,
             join_date TEXT NOT NULL,
-            is_admin INTEGER DEFAULT 0
+            is_admin INTEGER NOT NULL DEFAULT 0,
+            is_suspended INTEGER NOT NULL DEFAULT 0
         );
     `),
     DB.prepare(`
         CREATE TABLE IF NOT EXISTS media (
             media_id INTEGER PRIMARY KEY AUTOINCREMENT,
             file_name TEXT NOT NULL UNIQUE,
-            user_id INTEGER NOT NULL,
+            user_id TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES user (user_id)
         );
     `),
@@ -212,7 +315,8 @@ const SETUP_TABLES = [
             date TEXT NOT NULL,
             parent INTEGER,
             page_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
+            user_id TEXT NOT NULL,
+            is_deleted INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (parent) REFERENCES comment (comment_id),
             FOREIGN KEY (page_id) REFERENCES page (page_id),
             FOREIGN KEY (user_id) REFERENCES user (user_id)
@@ -239,8 +343,16 @@ const SETUP_TABLES = [
         );
     `),
     DB.prepare(`
-        CREATE TABLE IF NOT EXISTS user_page (
-            user_id INTEGER NOT NULL,
+        CREATE TABLE IF NOT EXISTS editor_page (
+            user_id TEXT NOT NULL,
+            page_id INTEGER NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES user (user_id),
+            FOREIGN KEY (page_id) REFERENCES page (page_id)
+        );
+    `),
+    DB.prepare(`
+        CREATE TABLE IF NOT EXISTS viewer_page (
+            user_id TEXT NOT NULL,
             page_id INTEGER NOT NULL,
             FOREIGN KEY (user_id) REFERENCES user (user_id),
             FOREIGN KEY (page_id) REFERENCES page (page_id)
@@ -274,6 +386,8 @@ SETUP_TABLES.forEach((stmt) => {
     stmt.run()
 })
 
-// DB.prepare(`INSERT INTO user VALUES('1234', 'jonas', 'now', 0)`).run()
+// DB.prepare(`INSERT INTO user VALUES('1234', 'jonas', 'now', 0);`).run()
 // let result = DB.prepare(`SELECT user_id, name FROM user WHERE name = ?;`).get("jonas")
 // console.log(result)
+
+//validateFolder(1, 0)
