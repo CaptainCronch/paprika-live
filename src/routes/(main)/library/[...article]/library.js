@@ -69,7 +69,7 @@ function postPage(pageTitle, allowedEditors, allowedViewers, folderName, tags, c
     allowedEditors.forEach(editor => {
         let userResult = getUserIDByName(editor)
         if (userResult === undefined) {
-            return {okay: false, reason: "Invalid editor", value: editor}
+            return {okay: false, reason: "Editor does not exist", value: editor}
         } else {
             editorIDs.push(userResult)
         }
@@ -79,7 +79,7 @@ function postPage(pageTitle, allowedEditors, allowedViewers, folderName, tags, c
     allowedViewers.forEach(viewer => {
         let userResult = getUserIDByName(viewer)
         if (userResult === undefined) {
-            return {okay: false, reason: "Invalid viewer", value: viewer}
+            return {okay: false, reason: "Viewer does not exist", value: viewer}
         } else {
             viewerIDs.push(userResult)
         }
@@ -96,7 +96,7 @@ function postPage(pageTitle, allowedEditors, allowedViewers, folderName, tags, c
     })
 
     let folderID = getFolderIDByName(folderName)
-    if (folderID === undefined) {return {okay: false, reason: "Invalid Folder", value: folderName}}
+    if (folderID === undefined) {return {okay: false, reason: "Folder does not exist", value: folderName}}
 
     let pageID =  DB.prepare(`INSERT INTO page (title, date, folder_id, is_deleted, is_open, is_private, secret_code) VALUES('?', '?', ?, 0, ?, ?);`)
             .run(pageTitle, getUniversalTime(), folderID, isOpen, isPrivate, generateBase58String()).lastInsertRowid
@@ -119,12 +119,12 @@ function postPage(pageTitle, allowedEditors, allowedViewers, folderName, tags, c
 }
 
 function postRevision(pageID, content, authorID, mediaIDs) { // TODO: validate text content
-    if (!validatePage(pageID)) {return {okay: false, reason: "Invalid Page", value: pageID}}
+    if (!validatePage(pageID)) {return {okay: false, reason: "Page does not exist", value: pageID}}
 
-    if (!validateUser(authorID)) {return {okay: false, reason: "Invalid User", value: authorID}}
+    if (!validateUser(authorID)) {return {okay: false, reason: "Author does not exist", value: authorID}}
 
     mediaIDs.forEach(mediaID => {
-        if (!validateMedia(mediaID)) {return {okay: false, reasion: "Invalid Media", value: mediaID}}
+        if (!validateMedia(mediaID)) {return {okay: false, reasion: "Media does not exist", value: mediaID}}
     })
 
     let textID = DB.prepare(`INSERT INTO text (text) VALUES('?');`).run(content).lastInsertRowid
@@ -146,6 +146,7 @@ function postTag(tagName) {
 }
 
 function postFolder(folderName, parentFolder = null) {
+    if (parentFolder !== null && !validateFolder(parentFolder)) {return {okay: false, reason: "Parent folder does not exist"}}
     if (validateFolderName(folderName, parentFolder) !== undefined) {return {okay: false, reason: "Folder already exists"}}
     DB.prepare(`INSERT INTO tag (name) VALUES('?', ?);`).run(folderName, parentFolder)
 
@@ -153,10 +154,14 @@ function postFolder(folderName, parentFolder = null) {
 }
 
 function postComment(content, parentCommentID = null, pageID, authorID) {
-    if (!validateComment(content, parentCommentID, pageID, authorID)) {return {okay: false, reason: "Comment already exists"}}
+    if (parentCommentID !== null && !validateComment(parentCommentID)) {return {okay: false, reason: "Parent comment does not exist"}}
+    if (!validatePage(pageID)) {return {okay: false, reason: "Page does not exist"}}
+    if (!validateUser(authorID)) {return {okay: false, reason: "User does not exist"}}
+    if (!validateWholeComment(content, parentCommentID, pageID, authorID)) {return {okay: false, reason: "Comment already exists"}}
+
     DB.prepare(`INSERT INTO comment (text, date, parent, page_id, user_id, is_deleted) VALUES('?', '?', ?, ?, '?', 0);`)
             .run(content, getUniversalTime(), parentCommentID, pageID, authorID)
-    
+
     return {okay: true}
 }
 
@@ -221,6 +226,11 @@ function validateFolderName(folderName, parentID) { // false if folder name does
     return result[`EXISTS(SELECT 1 FROM folder WHERE folder_id = ?)`] === 1;
 }
 
+function validateFolder(folderID) { // false if folder does NOT exist
+    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM folder WHERE folder_id = ?);`).get(folderID)
+    return result['EXISTS(SELECT 1 FROM folder WHERE folder_id = ?)'] === 1;
+}
+
 function getTagIDByName(tagName) { // undefined if tag does NOT exist, returns tag primary key
     let result = DB.prepare(`SELECT tag_id, name FROM tag WHERE name = '?';`).get(tagName)
     return result.tag_id
@@ -241,10 +251,15 @@ function validateUser(userID) { // false if user does NOT exist
     return result[`EXISTS(SELECT 1 FROM user WHERE user_id = '?')`] === 1;
 }
 
-function validateComment(content, parentCommentID, pageID, authorID) { // false if comment exists with same content, parent, page, and author
+function validateWholeComment(content, parentCommentID, pageID, authorID) { // false if comment exists with same content, parent, page, and author
     let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM comment WHERE text = '?' AND parent = ? AND page_id = ? AND user_id = '?');`)
             .get(content, parentCommentID, pageID, authorID)
     return result[`EXISTS(SELECT 1 FROM comment WHERE text = '?' AND parent = ? AND page_id = ? AND user_id = '?')`] === 0;
+}
+
+function validateComment(commentID) { // false if comment does not exist
+    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM comment WHERE comment_id = ?);`).get(commentID)
+    return result[`EXISTS(SELECT 1 FROM comment WHERE comment_id = ?)`] === 0;
 }
 
 function generateBase58String(size = SECRET_LENGTH) {
