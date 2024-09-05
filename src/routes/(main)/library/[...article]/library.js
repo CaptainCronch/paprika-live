@@ -22,7 +22,7 @@ tag: used to categorize pages and get collections of them.
     tag_id, name
 
 user: marks comment authors, revision writers, media uploaders, and who is allowed to edit a page. (admins can perform various authoritative actions.)
-    user_id (uuidv4), name, join_date, is_admin, is_suspended
+    user_id (uuidv4), name, password, session_id, session_expiration, join_date, is_admin, is_suspended
 
 media: marks uploader and filenames.
     media_id, filename, user_id
@@ -175,7 +175,7 @@ function postComment(content, parentCommentID = null, pageID, authorID) {
 === HELPER FUNCTIONS ===
 */
 
-function getUniversalTime() { // returns YYYY-MM-DDTHH:MM:SS.000000, "N/A" if both time APIs fail
+function getUniversalTime() { // returns YYYY-MM-DDTHH:MM:SS.sssZ, "N/A" if both time APIs fail
     let time
 
     fetch("https://timeapi.io/api/time/current/zone?timeZone=UTC")
@@ -185,7 +185,7 @@ function getUniversalTime() { // returns YYYY-MM-DDTHH:MM:SS.000000, "N/A" if bo
         }
         return Promise.reject(response)
     })
-    .then(body => time = body.dateTime.slice(0, -1)) // timeapi.io's response has one more milisecond character than worldtimeapi.org's
+    .then(body => time = body.dateTime.slice(0, -4) + "Z") // timeapi.io's response has one more milisecond character than worldtimeapi.org's
     .catch(function() {
         fetch("http://worldtimeapi.org/api/timezone/UTC")
         .then(response => {
@@ -194,7 +194,7 @@ function getUniversalTime() { // returns YYYY-MM-DDTHH:MM:SS.000000, "N/A" if bo
             }
             return Promise.reject(response)
         })
-        .then(body => time = body.datetime.slice(0, -6)) // worldtimeapi.org's response has the redundant UTC offset included (+00:00)
+        .then(body => time = body.datetime.slice(0, -9) + "Z") // worldtimeapi.org's response has the redundant UTC offset included (+00:00)
         .catch(function() {time = "N/A"})
     })
     return time
