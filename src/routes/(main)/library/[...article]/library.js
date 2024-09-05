@@ -1,6 +1,7 @@
 import { LIBRARY_PATH } from "$env/static/private"
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
+import cron from 'node-cron';
 // const options = {};
 export const DB = new Database(LIBRARY_PATH/*, options*/);
 DB.pragma('journal_mode = WAL');
@@ -13,7 +14,7 @@ const SECRET_LENGTH = 12
 === MAIN ===
 
 page: search for text to find id to search through revisions to find latest. tracks page deletion and whether it is open for public editing.
-    page_id, title, date, folder_id, is_deleted, is_open, is_private, secret_code
+    page_id, title, date, user_id, folder_id, is_deleted, is_open, is_private, secret_code
 
 text: contains whole text for one revision. grab this when using revision.
     text_id, text
@@ -263,6 +264,7 @@ const SETUP_TABLES = [
             page_id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL UNIQUE,
             date TEXT NOT NULL,
+            user_id INTEGER NOT NULL,
             folder_id INTEGER NOT NULL,
             is_deleted INTEGER NOT NULL DEFAULT 0,
             is_open INTEGER NOT NULL DEFAULT 0,
@@ -287,6 +289,9 @@ const SETUP_TABLES = [
         CREATE TABLE IF NOT EXISTS user (
             user_id TEXT NOT NULL UNIQUE,
             name TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            session_expiration TEXT NOT NULL,
             join_date TEXT NOT NULL,
             is_admin INTEGER NOT NULL DEFAULT 0,
             is_suspended INTEGER NOT NULL DEFAULT 0
@@ -296,7 +301,7 @@ const SETUP_TABLES = [
         CREATE TABLE IF NOT EXISTS media (
             media_id INTEGER PRIMARY KEY AUTOINCREMENT,
             file_name TEXT NOT NULL UNIQUE,
-            user_id TEXT NOT NULL,
+            user_id TEXT,
             FOREIGN KEY (user_id) REFERENCES user (user_id)
         );
     `),
@@ -315,7 +320,7 @@ const SETUP_TABLES = [
             date TEXT NOT NULL,
             parent INTEGER,
             page_id INTEGER NOT NULL,
-            user_id TEXT NOT NULL,
+            user_id TEXT,
             is_deleted INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (parent) REFERENCES comment (comment_id),
             FOREIGN KEY (page_id) REFERENCES page (page_id),
@@ -328,7 +333,7 @@ const SETUP_TABLES = [
             date TEXT NOT NULL,
             page_id INTEGER NOT NULL,
             text_id INTEGER NOT NULL,
-            user_id TEXT NOT NULL,
+            user_id TEXT,
             FOREIGN KEY (page_id) REFERENCES page (page_id),
             FOREIGN KEY (text_id) REFERENCES text (text_id),
             FOREIGN KEY (user_id) REFERENCES user (user_id)
@@ -344,7 +349,7 @@ const SETUP_TABLES = [
     `),
     DB.prepare(`
         CREATE TABLE IF NOT EXISTS editor_page (
-            user_id TEXT NOT NULL,
+            user_id TEXT,
             page_id INTEGER NOT NULL,
             FOREIGN KEY (user_id) REFERENCES user (user_id),
             FOREIGN KEY (page_id) REFERENCES page (page_id)
@@ -352,7 +357,7 @@ const SETUP_TABLES = [
     `),
     DB.prepare(`
         CREATE TABLE IF NOT EXISTS viewer_page (
-            user_id TEXT NOT NULL,
+            user_id TEXT,
             page_id INTEGER NOT NULL,
             FOREIGN KEY (user_id) REFERENCES user (user_id),
             FOREIGN KEY (page_id) REFERENCES page (page_id)
