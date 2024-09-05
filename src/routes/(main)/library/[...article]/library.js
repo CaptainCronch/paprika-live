@@ -2,10 +2,14 @@ import { LIBRARY_PATH } from "$env/static/private"
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import cron from 'node-cron';
+import argon2 from "argon2";
 // const options = {};
 export const DB = new Database(LIBRARY_PATH/*, options*/);
 DB.pragma('journal_mode = WAL');
 DB.pragma('foreign_keys = TRUE');
+
+const PASSWORD_REGEX = /^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~\`!@#$%^&*()_\-+={[}\]|\\:;"'<,>.?/]+$/
+const PASSWORD_MIN_LENGTH = 6
 
 const SECRET_CHARACTERS = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz" // base52
 const SECRET_LENGTH = 12
@@ -57,19 +61,20 @@ media_revision: denotes what media files are used by each revision.
 */
 
 // TODO: Stat tracking on post/delete functions
+// TODO: Do all POST functions with IDs or all with names... (I just don't know how exactly they'll be used right noww)
 
 /*
 === POST FUNCTIONS ===
 */
 
 function postPage(pageTitle, allowedEditors, allowedViewers, folderName, tags, content, isOpen, isPrivate, authorID, mediaIDs) {
-    if (getPageIDByTitle(pageTitle) === undefined) {return {okay: false, reason: "Name taken", value: pageTitle}}
+    if (getPageIDByTitle(pageTitle) === undefined) {return ReturnResult(false, 403, "Name taken", pageTitle)}
 
     let editorIDs = []
     allowedEditors.forEach(editor => {
         let userResult = getUserIDByName(editor)
         if (userResult === undefined) {
-            return {okay: false, reason: "Editor does not exist", value: editor}
+            return ReturnResult(false, 404, "Editor does not exist", editor)
         } else {
             editorIDs.push(userResult)
         }
@@ -79,7 +84,7 @@ function postPage(pageTitle, allowedEditors, allowedViewers, folderName, tags, c
     allowedViewers.forEach(viewer => {
         let userResult = getUserIDByName(viewer)
         if (userResult === undefined) {
-            return {okay: false, reason: "Viewer does not exist", value: viewer}
+            return ReturnResult(false, 404, "Viewer does not exist", viewer)
         } else {
             viewerIDs.push(userResult)
         }
@@ -96,7 +101,7 @@ function postPage(pageTitle, allowedEditors, allowedViewers, folderName, tags, c
     })
 
     let folderID = getFolderIDByName(folderName)
-    if (folderID === undefined) {return {okay: false, reason: "Folder does not exist", value: folderName}}
+    if (folderID === undefined) {return ReturnResult(false, 404, "Folder does not exist", folderName)}
 
     let pageID =  DB.prepare(`INSERT INTO page (title, date, folder_id, is_deleted, is_open, is_private, secret_code) VALUES('?', '?', ?, 0, ?, ?);`)
             .run(pageTitle, getUniversalTime(), folderID, isOpen, isPrivate, generateBase58String()).lastInsertRowid
@@ -115,16 +120,16 @@ function postPage(pageTitle, allowedEditors, allowedViewers, folderName, tags, c
 
     let revisionResult = postRevision(pageID, content, authorID, mediaIDs)
     if (!revisionResult.okay) {return revisionResult}
-    else {return {okay: true}}
+    else {return ReturnResult(true, 201, "Page created", pageID)}
 }
 
 function postRevision(pageID, content, authorID, mediaIDs) { // TODO: validate text content
-    if (!validatePage(pageID)) {return {okay: false, reason: "Page does not exist", value: pageID}}
+    if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
 
-    if (!validateUser(authorID)) {return {okay: false, reason: "Author does not exist", value: authorID}}
+    if (!validateUser(authorID)) {return ReturnResult(false, 404, "Author does not exist", authorID)}
 
     mediaIDs.forEach(mediaID => {
-        if (!validateMedia(mediaID)) {return {okay: false, reasion: "Media does not exist", value: mediaID}}
+        if (!validateMedia(mediaID)) {return ReturnResult(false, 404, "Media does not exist", mediaID)}
     })
 
     let textID = DB.prepare(`INSERT INTO text (text) VALUES('?');`).run(content).lastInsertRowid
@@ -135,34 +140,48 @@ function postRevision(pageID, content, authorID, mediaIDs) { // TODO: validate t
         DB.prepare(`INSERT INTO media_revision (media_id, revision_id) VALUES(?, ?);`).run(mediaID, revisionID)
     })
 
-    return {okay: true}
+    return ReturnResult(true, 201, "Revision created", revisionID)
 }
 
 function postTag(tagName) {
-    if (getTagIDByName(tagName) !== undefined) {return {okay: false, reason: "Tag already exists"}}
-    DB.prepare(`INSERT INTO tag (name) VALUES('?');`).run(tagName)
+    if (getTagIDByName(tagName) !== undefined) {return ReturnResult(false, 403, "Tag already exists", tagName)}
+    let tagID = DB.prepare(`INSERT INTO tag (name) VALUES('?');`).run(tagName).lastInsertRowid
 
-    return {okay: true}
+    return ReturnResult(true, 201, "Tag created", tagID)
 }
 
 function postFolder(folderName, parentFolder = null) {
-    if (parentFolder !== null && !validateFolder(parentFolder)) {return {okay: false, reason: "Parent folder does not exist"}}
-    if (validateFolderName(folderName, parentFolder) !== undefined) {return {okay: false, reason: "Folder already exists"}}
-    DB.prepare(`INSERT INTO tag (name) VALUES('?', ?);`).run(folderName, parentFolder)
+    if (parentFolder !== null && !validateFolder(parentFolder)) {return ReturnResult(false, 404, "Parent folder does not exist", parentFolder)}
+    if (validateFolderName(folderName, parentFolder) !== undefined) {return ReturnResult(false, 403, "Folder already exists", folderName)}
+    let folderID = DB.prepare(`INSERT INTO tag (name) VALUES('?', ?);`).run(folderName, parentFolder).lastInsertRowid
 
-    return {okay: true}
+    return ReturnResult(true, 201, "Folder created", folderID)
 }
 
 function postComment(content, parentCommentID = null, pageID, authorID) {
-    if (parentCommentID !== null && !validateComment(parentCommentID)) {return {okay: false, reason: "Parent comment does not exist"}}
-    if (!validatePage(pageID)) {return {okay: false, reason: "Page does not exist"}}
-    if (!validateUser(authorID)) {return {okay: false, reason: "User does not exist"}}
-    if (!validateWholeComment(content, parentCommentID, pageID, authorID)) {return {okay: false, reason: "Comment already exists"}}
+    if (parentCommentID !== null && !validateComment(parentCommentID)) {return ReturnResult(false, 404, "Parent comment does not exist", parentCommentID)}
+    if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
+    if (!validateUser(authorID)) {return ReturnResult(false, 404, "User does not exist", authorID)}
+    if (!validateWholeComment(content, parentCommentID, pageID, authorID)) {return ReturnResult(false, 403, "Comment already exists", "Same words, same parent comment, same page, same author.")}
 
-    DB.prepare(`INSERT INTO comment (text, date, parent, page_id, user_id, is_deleted) VALUES('?', '?', ?, ?, '?', 0);`)
-            .run(content, getUniversalTime(), parentCommentID, pageID, authorID)
+    let commentID = DB.prepare(`INSERT INTO comment (text, date, parent, page_id, user_id, is_deleted) VALUES('?', '?', ?, ?, '?', 0);`)
+            .run(content, getUniversalTime(), parentCommentID, pageID, authorID).lastInsertRowid
 
-    return {okay: true}
+    return ReturnResult(true, 201, "Comment created", commentID)
+}
+
+function postUser(name, password) { // how is this supposed to return a code if it depends on a promise...
+    if (getUserIDByName(name) !== undefined) {return ReturnResult(false, 403, "Name taken", name)}
+    if (password.length < PASSWORD_MIN_LENGTH) {return ReturnResult(false, 403, "Password not long enough", password.length)}
+    if (password.match(PASSWORD_REGEX) === null) {return ReturnResult(false, 403, "Invalid password character(s)", `Valid characters are ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~\`!@#$%^&*()_\-+={[}\]|\\:;"'<,>.?/`)}
+
+    argon2.hash(password)
+    .then(function() {
+        let userID = DB.prepare(`INSERT INTO user (user_id, name, password, join_date, is_admin, is_suspended) VALUES('?', '?', '?', '?', 0, 0);`)
+            .run(uuidv4(), name, hash, getUniversalTime()).lastInsertRowid
+        return ReturnResult(true, 201, "User created", userID)
+    })
+    .catch(function(err) {return ReturnResult(false, 500, "Pasword hashing failed", err)})
 }
 
 /*
@@ -405,6 +424,15 @@ const SETUP_TABLES = [
 SETUP_TABLES.forEach((stmt) => {
     stmt.run()
 })
+
+class ReturnResult {
+    constructor(okay, code, reason, value) {
+        this.okay = okay
+        this.code = code
+        this.reason = reason
+        this.value = value
+    }
+}
 
 // DB.prepare(`INSERT INTO user VALUES('1234', 'jonas', 'now', 0);`).run()
 // let result = DB.prepare(`SELECT user_id, name FROM user WHERE name = ?;`).get("jonas")
