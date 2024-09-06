@@ -15,6 +15,8 @@ const PASSWORD_MIN_LENGTH = 6
 
 const SECRET_CHARACTERS = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz" // base52
 const SECRET_LENGTH = 12
+const SESSION_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_" // base64
+const SESSION_LENGTH = 128
 
 /*
 === MAIN ===
@@ -107,7 +109,7 @@ async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, fo
 
     let dateTime = await getUniversalTime()
     let pageID =  DB.prepare(`INSERT INTO page (title, date, folder_id, is_deleted, is_open, is_private, secret_code) VALUES('?', '?', ?, 0, ?, ?);`)
-            .run(pageTitle, dateTime, folderID, isOpen, isPrivate, generateBase58String()).lastInsertRowid
+            .run(pageTitle, dateTime, folderID, isOpen, isPrivate, generateRandomString(SECRET_CHARACTERS, SECRET_LENGTH)).lastInsertRowid
 
     editorIDs.forEach(editorID => {
         DB.prepare(`INSERT INTO editor_page (user_id, page_id) VALUES('?', ?);`).run(editorID, pageID)
@@ -215,13 +217,15 @@ async function getUniversalTime() { // returns YYYY-MM-DDTHH:MM:SS.sssZ, "N/A" i
     let timeApiResponse = await fetch("https://timeapi.io/api/time/current/zone?timeZone=UTC")
     let timeApiResult = await timeApiResponse.json()
     if (timeApiResponse.ok) {
-        return timeApiResult.dateTime.slice(0, -4) + "Z"
+        let present = new Date(timeApiResult.dateTime.slice(0, -4) + "Z")
+        return present.toISOString()
     }
 
     let worldTimeApiResponse = await fetch("http://worldtimeapi.org/api/timezone/UTC")
     let worldTimeApiResult = await worldTimeApiResponse.json()
     if (worldTimeApiResponse.ok) {
-        return worldTimeApiResult.dateTime.slice(0, -9) + "Z"
+        let present = new Date(worldTimeApiResult.datetime.slice(0, -9) + "Z")
+        return present.toISOString()
     }
 
     return "N/A"
@@ -234,6 +238,30 @@ async function validateSession(sessionID) { // false if sid does not exist or ex
         return true
     }
     return false
+}
+
+async function loginUser(name, password) {
+    let userID = getUserIDByName(name)
+    if (userID === undefined) {return ReturnResult(false, 404, "Username does not exist", name)}
+
+    const HASH = DB.prepare(`SELECT user_id, password FROM user WHERE user_id = '?';`).get(userID).password
+    try {
+        if (await argon2.verify(HASH, password)) {
+            let sessionID = generateRandomString(SESSION_CHARACTERS, SESSION_LENGTH)
+            
+            let present = new Date(await getUniversalTime())
+            let future = present.setDate(present.getDate() + 14)
+
+            DB.prepare(`INSERT INTO user (session_id, session_expiration) VALUES('?', '?'));`)
+                    .run(sessionID, future.toISOString())
+            
+            return ReturnResult(true, 201, "Session created", sessionID)
+        } else {
+            return ReturnResult(false, 400, "Invalid password", "Please try again...")
+        }
+    } catch (err) {
+        return ReturnResult(false, 500, "Hash verification failed", err.toString())
+    }
 }
 
 function getPageIDByTitle(pageTitle) { // undefined if page does NOT exist, returns page primary key
@@ -292,12 +320,12 @@ function validateComment(commentID) { // false if comment does not exist
     return result[`EXISTS(SELECT 1 FROM comment WHERE comment_id = ?)`] === 0;
 }
 
-function generateBase58String(size = SECRET_LENGTH) {
+function generateRandomString(characters, size) {
     if (size <= 0) {return ""}
     let output = []
     
     for (let i = 0; i < size; i++) {
-        output.push(SECRET_CHARACTERS.charAt(Math.floor(Math.random() * SECRET_CHARACTERS.length)))
+        output.push(characters.charAt(Math.floor(Math.random() * characters.length)))
     }
 
     return output.join('')
@@ -448,5 +476,3 @@ class ReturnResult {
 // DB.prepare(`INSERT INTO user VALUES('1234', 'jonas', 'now', 0);`).run()
 // let result = DB.prepare(`SELECT user_id, name FROM user WHERE name = ?;`).get("jonas")
 // console.log(result)
-
-//validateFolder(1, 0)
