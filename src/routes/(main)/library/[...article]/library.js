@@ -98,7 +98,7 @@ async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, fo
     tags.forEach(tag => { // creates new tag if input is invalid
         let tagResult = getTagIDByName(tag)
         if (tagResult === undefined) {
-            tagIDs.push(DB.prepare(`INSERT INTO tag (name) VALUES('?');`).run(tag).lastInsertRowid)
+            tagIDs.push(DB.prepare(`INSERT INTO tag (name) VALUES(?);`).run(tag).lastInsertRowid)
         } else {
             tagIDs.push(tagResult)
         }
@@ -108,19 +108,19 @@ async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, fo
     if (folderID === undefined) {return ReturnResult(false, 404, "Folder does not exist", folderName)}
 
     let dateTime = await getUniversalTime()
-    let pageID =  DB.prepare(`INSERT INTO page (title, date, folder_id, is_deleted, is_open, is_private, secret_code) VALUES('?', '?', ?, 0, ?, ?);`)
+    let pageID =  DB.prepare(`INSERT INTO page (title, date, folder_id, is_deleted, is_open, is_private, secret_code) VALUES(?, ?, ?, 0, ?, ?);`)
             .run(pageTitle, dateTime, folderID, isOpen, isPrivate, generateRandomString(SECRET_CHARACTERS, SECRET_LENGTH)).lastInsertRowid
 
     editorIDs.forEach(editorID => {
-        DB.prepare(`INSERT INTO editor_page (user_id, page_id) VALUES('?', ?);`).run(editorID, pageID)
+        DB.prepare(`INSERT INTO editor_page (user_id, page_id) VALUES(?, ?);`).run(editorID, pageID)
     })
 
     viewerIDs.forEach(viewerID => {
-        DB.prepare(`INSERT INTO viewer_page (user_id, page_id) VALUES('?', ?);`).run(viewerID, pageID)
+        DB.prepare(`INSERT INTO viewer_page (user_id, page_id) VALUES(?, ?);`).run(viewerID, pageID)
     })
 
     tagIDs.forEach(tagID => {
-        DB.prepare(`INSERT INTO page_tag (page_id, tag_id) VALUES('?', ?);`).run(pageID, tagID)
+        DB.prepare(`INSERT INTO page_tag (page_id, tag_id) VALUES(?, ?);`).run(pageID, tagID)
     })
 
     let revisionResult = postRevision(pageID, content, authorID, mediaIDs)
@@ -138,10 +138,10 @@ async function postRevision(sessionID, pageID, content, authorID, mediaIDs) { //
         if (!validateMedia(mediaID)) {return ReturnResult(false, 404, "Media does not exist", mediaID)}
     })
 
-    let textID = DB.prepare(`INSERT INTO text (text) VALUES('?');`).run(content).lastInsertRowid
+    let textID = DB.prepare(`INSERT INTO text (text) VALUES(?);`).run(content).lastInsertRowid
 
     let dateTime = await getUniversalTime()
-    let revisionID = DB.prepare(`INSERT INTO revision (date, page_id, text_id, user_id) VALUES('?', ?, ?, '?');`).run(dateTime, pageID, textID, authorID).lastInsertRowid
+    let revisionID = DB.prepare(`INSERT INTO revision (date, page_id, text_id, user_id) VALUES(?, ?, ?, ?);`).run(dateTime, pageID, textID, authorID).lastInsertRowid
 
     mediaIDs.forEach(mediaID => {
         DB.prepare(`INSERT INTO media_revision (media_id, revision_id) VALUES(?, ?);`).run(mediaID, revisionID)
@@ -153,7 +153,7 @@ async function postRevision(sessionID, pageID, content, authorID, mediaIDs) { //
 async function postTag(sessionID, tagName) {
     if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (getTagIDByName(tagName) !== undefined) {return ReturnResult(false, 400, "Tag already exists", tagName)}
-    let tagID = DB.prepare(`INSERT INTO tag (name) VALUES('?');`).run(tagName).lastInsertRowid
+    let tagID = DB.prepare(`INSERT INTO tag (name) VALUES(?);`).run(tagName).lastInsertRowid
 
     return ReturnResult(true, 201, "Tag created", tagID)
 }
@@ -162,7 +162,7 @@ async function postFolder(sessionID, folderName, parentFolder = null) {
     if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (parentFolder !== null && !validateFolder(parentFolder)) {return ReturnResult(false, 404, "Parent folder does not exist", parentFolder)}
     if (validateFolderName(folderName, parentFolder) !== undefined) {return ReturnResult(false, 400, "Folder already exists", folderName)}
-    let folderID = DB.prepare(`INSERT INTO tag (name) VALUES('?', ?);`).run(folderName, parentFolder).lastInsertRowid
+    let folderID = DB.prepare(`INSERT INTO tag (name) VALUES(?, ?);`).run(folderName, parentFolder).lastInsertRowid
 
     return ReturnResult(true, 201, "Folder created", folderID)
 }
@@ -174,7 +174,7 @@ async function postComment(sessionID, content, parentCommentID = null, pageID, a
     if (!validateUser(authorID)) {return ReturnResult(false, 404, "User does not exist", authorID)}
     if (!validateWholeComment(content, parentCommentID, pageID, authorID)) {return ReturnResult(false, 400, "Comment already exists", "Same words, same parent comment, same page, same author.")}
 
-    let commentID = DB.prepare(`INSERT INTO comment (text, date, parent, page_id, user_id, is_deleted) VALUES('?', '?', ?, ?, '?', 0);`)
+    let commentID = DB.prepare(`INSERT INTO comment (text, date, parent, page_id, user_id, is_deleted) VALUES(?, ?, ?, ?, ?, 0);`)
             .run(content, getUniversalTime(), parentCommentID, pageID, authorID).lastInsertRowid
 
     return ReturnResult(true, 201, "Comment created", commentID)
@@ -189,7 +189,7 @@ async function postUser(name, password) {
 
     try {
         let hash = await argon2.hash(password)
-        let userID = DB.prepare(`INSERT INTO user (user_id, name, password, join_date, is_admin, is_suspended) VALUES('?', '?', '?', '?', 0, 0);`)
+        let userID = DB.prepare(`INSERT INTO user (user_id, name, password, join_date, is_admin, is_suspended) VALUES(?, ?, ?, ?, 0, 0);`)
             .run(uuidv4(), name, hash, getUniversalTime()).lastInsertRowid
         return ReturnResult(true, 201, "User created", userID)
     } catch (err) {
@@ -205,9 +205,41 @@ async function postUser(name, password) {
 === PUT FUNCTIONS ===
 */
 
+async function loginUser(name, password) {
+    let userID = getUserIDByName(name)
+    if (userID === undefined) {return ReturnResult(false, 404, "Username does not exist", name)}
+
+    const HASH = DB.prepare(`SELECT user_id, password FROM user WHERE user_id = ?;`).get(userID).password
+    try {
+        if (await argon2.verify(HASH, password)) {
+            let sessionID = generateRandomString(SESSION_CHARACTERS, SESSION_LENGTH)
+            
+            let present = new Date(await getUniversalTime())
+            let future = present.setDate(present.getDate() + 14)
+
+            DB.prepare(`INSERT INTO user (session_id, session_expiration) VALUES(?, ?));`)
+                    .run(sessionID, future.toISOString())
+            
+            return ReturnResult(true, 201, "Session created", sessionID)
+        } else {
+            return ReturnResult(false, 400, "Invalid password", "Please try again...")
+        }
+    } catch (err) {
+        return ReturnResult(false, 500, "Hash verification failed", err.toString())
+    }
+}
+
 /*
 === DELETE FUNCTIONS ===
 */
+
+function logoutUser(sessionID) {
+    if (DB.prepare(`UPDATE user SET session_id = null WHERE session_id = ?;`).run(sessionID).changes === 0) {
+        return ReturnResult(false, 400, "Invalid session ID", sessionID)
+    } else {
+        return ReturnResult(true, 200, "Session ID invalidated", sessionID)
+    }
+}
 
 /*
 === HELPER FUNCTIONS ===
@@ -232,7 +264,7 @@ async function getUniversalTime() { // returns YYYY-MM-DDTHH:MM:SS.sssZ, "N/A" i
 }
 
 async function validateSession(sessionID) { // false if sid does not exist or expired
-    const SESSION_QUERY = DB.prepare(`SELECT session_id, session_expiration FROM user WHERE session_id = '?';`).get(sessionID)
+    const SESSION_QUERY = DB.prepare(`SELECT session_id, session_expiration FROM user WHERE session_id = ?;`).get(sessionID)
     let dateTime = await getUniversalTime()
     if (SESSION_QUERY.session_id === sessionID && Date(SESSION_QUERY.session_expiration) > Date(dateTime)) {
         return true
@@ -240,32 +272,8 @@ async function validateSession(sessionID) { // false if sid does not exist or ex
     return false
 }
 
-async function loginUser(name, password) {
-    let userID = getUserIDByName(name)
-    if (userID === undefined) {return ReturnResult(false, 404, "Username does not exist", name)}
-
-    const HASH = DB.prepare(`SELECT user_id, password FROM user WHERE user_id = '?';`).get(userID).password
-    try {
-        if (await argon2.verify(HASH, password)) {
-            let sessionID = generateRandomString(SESSION_CHARACTERS, SESSION_LENGTH)
-            
-            let present = new Date(await getUniversalTime())
-            let future = present.setDate(present.getDate() + 14)
-
-            DB.prepare(`INSERT INTO user (session_id, session_expiration) VALUES('?', '?'));`)
-                    .run(sessionID, future.toISOString())
-            
-            return ReturnResult(true, 201, "Session created", sessionID)
-        } else {
-            return ReturnResult(false, 400, "Invalid password", "Please try again...")
-        }
-    } catch (err) {
-        return ReturnResult(false, 500, "Hash verification failed", err.toString())
-    }
-}
-
 function getPageIDByTitle(pageTitle) { // undefined if page does NOT exist, returns page primary key
-    const ID_QUERY = DB.prepare(`SELECT page_id, title FROM page WHERE title = '?';`).get(pageTitle)
+    const ID_QUERY = DB.prepare(`SELECT page_id, title FROM page WHERE title = ?;`).get(pageTitle)
     return ID_QUERY.page_id
 }
 
@@ -275,12 +283,12 @@ function validatePage(pageID) { // false if page does NOT exist
 }
 
 function getFolderIDByName(folderName) { // undefined if folder does NOT exist, returns folder primary key
-    let result = DB.prepare(`SELECT folder_id, name FROM folder WHERE name = '?';`).get(folderName)
+    let result = DB.prepare(`SELECT folder_id, name FROM folder WHERE name = ?;`).get(folderName)
     return result.folder_id
 }
 
 function validateFolderName(folderName, parentID) { // false if folder name does NOT exist with same parent
-    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM folder WHERE name = '?' AND parent = ?);`).get(folderID)
+    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM folder WHERE name = ? AND parent = ?);`).get(folderID)
     return result[`EXISTS(SELECT 1 FROM folder WHERE folder_id = ?)`] === 1;
 }
 
@@ -290,7 +298,7 @@ function validateFolder(folderID) { // false if folder does NOT exist
 }
 
 function getTagIDByName(tagName) { // undefined if tag does NOT exist, returns tag primary key
-    let result = DB.prepare(`SELECT tag_id, name FROM tag WHERE name = '?';`).get(tagName)
+    let result = DB.prepare(`SELECT tag_id, name FROM tag WHERE name = ?;`).get(tagName)
     return result.tag_id
 }
 
@@ -300,19 +308,19 @@ function validateTag(tagID) { // false if tag does NOT exist
 }
 
 function getUserIDByName(userName) { // undefined if user does NOT exist, returns user primary key
-    let result = DB.prepare(`SELECT user_id, name FROM user WHERE name = '?';`).get(userName)
+    let result = DB.prepare(`SELECT user_id, name FROM user WHERE name = ?;`).get(userName)
     return result.user_id
 }
 
 function validateUser(userID) { // false if user does NOT exist
-    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM user WHERE user_id = '?');`).get(userID)
-    return result[`EXISTS(SELECT 1 FROM user WHERE user_id = '?')`] === 1;
+    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM user WHERE user_id = ?);`).get(userID)
+    return result[`EXISTS(SELECT 1 FROM user WHERE user_id = ?)`] === 1;
 }
 
 function validateWholeComment(content, parentCommentID, pageID, authorID) { // false if comment exists with same content, parent, page, and author
-    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM comment WHERE text = '?' AND parent = ? AND page_id = ? AND user_id = '?');`)
+    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM comment WHERE text = ? AND parent = ? AND page_id = ? AND user_id = ?);`)
             .get(content, parentCommentID, pageID, authorID)
-    return result[`EXISTS(SELECT 1 FROM comment WHERE text = '?' AND parent = ? AND page_id = ? AND user_id = '?')`] === 0;
+    return result[`EXISTS(SELECT 1 FROM comment WHERE text = ? AND parent = ? AND page_id = ? AND user_id = ?)`] === 0;
 }
 
 function validateComment(commentID) { // false if comment does not exist
