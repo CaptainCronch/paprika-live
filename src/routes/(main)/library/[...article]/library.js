@@ -63,14 +63,13 @@ media_revision: denotes what media files are used by each revision.
 */
 
 // TODO: Stat tracking on post/delete functions
-// TODO: Make everything an async function 
-// TODO: Fix .then() setting outer variable.. Just make better async code please
 
 /*
 === POST FUNCTIONS ===
 */
 
-function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderName, tags, content, isOpen, isPrivate, authorID, mediaIDs) {
+async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderName, tags, content, isOpen, isPrivate, authorID, mediaIDs) {
+    if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (getPageIDByTitle(pageTitle) === undefined) {return ReturnResult(false, 400, "Name taken", pageTitle)}
 
     let editorIDs = []
@@ -106,8 +105,9 @@ function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderNa
     let folderID = getFolderIDByName(folderName)
     if (folderID === undefined) {return ReturnResult(false, 404, "Folder does not exist", folderName)}
 
+    let dateTime = await getUniversalTime()
     let pageID =  DB.prepare(`INSERT INTO page (title, date, folder_id, is_deleted, is_open, is_private, secret_code) VALUES('?', '?', ?, 0, ?, ?);`)
-            .run(pageTitle, getUniversalTime(), folderID, isOpen, isPrivate, generateBase58String()).lastInsertRowid
+            .run(pageTitle, dateTime, folderID, isOpen, isPrivate, generateBase58String()).lastInsertRowid
 
     editorIDs.forEach(editorID => {
         DB.prepare(`INSERT INTO editor_page (user_id, page_id) VALUES('?', ?);`).run(editorID, pageID)
@@ -126,7 +126,8 @@ function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderNa
     else {return ReturnResult(true, 201, "Page created", pageID)}
 }
 
-function postRevision(sessionID, pageID, content, authorID, mediaIDs) { // TODO: validate text content
+async function postRevision(sessionID, pageID, content, authorID, mediaIDs) { // TODO: validate text content
+    if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
 
     if (!validateUser(authorID)) {return ReturnResult(false, 404, "Author does not exist", authorID)}
@@ -137,7 +138,8 @@ function postRevision(sessionID, pageID, content, authorID, mediaIDs) { // TODO:
 
     let textID = DB.prepare(`INSERT INTO text (text) VALUES('?');`).run(content).lastInsertRowid
 
-    let revisionID = DB.prepare(`INSERT INTO revision (date, page_id, text_id, user_id) VALUES('?', ?, ?, '?');`).run(getUniversalTime(), pageID, textID, authorID).lastInsertRowid
+    let dateTime = await getUniversalTime()
+    let revisionID = DB.prepare(`INSERT INTO revision (date, page_id, text_id, user_id) VALUES('?', ?, ?, '?');`).run(dateTime, pageID, textID, authorID).lastInsertRowid
 
     mediaIDs.forEach(mediaID => {
         DB.prepare(`INSERT INTO media_revision (media_id, revision_id) VALUES(?, ?);`).run(mediaID, revisionID)
@@ -146,14 +148,16 @@ function postRevision(sessionID, pageID, content, authorID, mediaIDs) { // TODO:
     return ReturnResult(true, 201, "Revision created", revisionID)
 }
 
-function postTag(sessionID, tagName) {
+async function postTag(sessionID, tagName) {
+    if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (getTagIDByName(tagName) !== undefined) {return ReturnResult(false, 400, "Tag already exists", tagName)}
     let tagID = DB.prepare(`INSERT INTO tag (name) VALUES('?');`).run(tagName).lastInsertRowid
 
     return ReturnResult(true, 201, "Tag created", tagID)
 }
 
-function postFolder(sessionID, folderName, parentFolder = null) {
+async function postFolder(sessionID, folderName, parentFolder = null) {
+    if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (parentFolder !== null && !validateFolder(parentFolder)) {return ReturnResult(false, 404, "Parent folder does not exist", parentFolder)}
     if (validateFolderName(folderName, parentFolder) !== undefined) {return ReturnResult(false, 400, "Folder already exists", folderName)}
     let folderID = DB.prepare(`INSERT INTO tag (name) VALUES('?', ?);`).run(folderName, parentFolder).lastInsertRowid
@@ -161,7 +165,8 @@ function postFolder(sessionID, folderName, parentFolder = null) {
     return ReturnResult(true, 201, "Folder created", folderID)
 }
 
-function postComment(sessionID, content, parentCommentID = null, pageID, authorID) {
+async function postComment(sessionID, content, parentCommentID = null, pageID, authorID) {
+    if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (parentCommentID !== null && !validateComment(parentCommentID)) {return ReturnResult(false, 404, "Parent comment does not exist", parentCommentID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
     if (!validateUser(authorID)) {return ReturnResult(false, 404, "User does not exist", authorID)}
@@ -173,20 +178,21 @@ function postComment(sessionID, content, parentCommentID = null, pageID, authorI
     return ReturnResult(true, 201, "Comment created", commentID)
 }
 
-function postUser(name, password) { // how is this supposed to return a code if it depends on a promise...
+async function postUser(name, password) {
     if (getUserIDByName(name) !== undefined) {return ReturnResult(false, 400, "Name taken", name)}
     if (name.length > USERNAME_MAX_LENGTH) {return ReturnResult(false, 400, "Username too long", name.length)}
     if (name.match(USERNAME_REGEX === null)) {return ReturnResult(false, 400, "Invalid username character(s)", "Valid characters are alphanumeric and -_")}
     if (password.length < PASSWORD_MIN_LENGTH) {return ReturnResult(false, 400, "Password not long enough", password.length)}
     if (password.match(PASSWORD_REGEX) === null) {return ReturnResult(false, 400, "Invalid password character(s)", `Valid characters are alphanumeric and ~\`!@#$%^&*()_\-+={[}\]|\\:;"'<,>.?/`)}
 
-    argon2.hash(password)
-    .then(function() {
+    try {
+        let hash = await argon2.hash(password)
         let userID = DB.prepare(`INSERT INTO user (user_id, name, password, join_date, is_admin, is_suspended) VALUES('?', '?', '?', '?', 0, 0);`)
             .run(uuidv4(), name, hash, getUniversalTime()).lastInsertRowid
-        // return ReturnResult(true, 201, "User created", userID)
-    })
-    // .catch(function(err) {return ReturnResult(false, 500, "Pasword hashing failed", err)})
+        return ReturnResult(true, 201, "User created", userID)
+    } catch (err) {
+        return ReturnResult(false, 500, "Pasword hashing failed", err.toString())
+    }
 }
 
 /*
@@ -205,34 +211,29 @@ function postUser(name, password) { // how is this supposed to return a code if 
 === HELPER FUNCTIONS ===
 */
 
-function getUniversalTime() { // returns YYYY-MM-DDTHH:MM:SS.sssZ, "N/A" if both time APIs fail
-    let time
+async function getUniversalTime() { // returns YYYY-MM-DDTHH:MM:SS.sssZ, "N/A" if both time APIs fail
+    let timeApiResponse = await fetch("https://timeapi.io/api/time/current/zone?timeZone=UTC")
+    let timeApiResult = await timeApiResponse.json()
+    if (timeApiResponse.ok) {
+        return timeApiResult.dateTime.slice(0, -4) + "Z"
+    }
 
-    fetch("https://timeapi.io/api/time/current/zone?timeZone=UTC")
-    .then(response => {
-        if (response.ok){
-            return response.json()
-        }
-        return Promise.reject(response)
-    })
-    .then(body => time = body.dateTime.slice(0, -4) + "Z") // timeapi.io's response has one more milisecond character than worldtimeapi.org's
-    .catch(function() {
-        fetch("http://worldtimeapi.org/api/timezone/UTC")
-        .then(response => {
-            if (response.ok){
-                return response.json()
-            }
-            return Promise.reject(response)
-        })
-        .then(body => time = body.datetime.slice(0, -9) + "Z") // worldtimeapi.org's response has the redundant UTC offset included (+00:00)
-        .catch(function() {time = "N/A"})
-    })
-    return time
+    let worldTimeApiResponse = await fetch("http://worldtimeapi.org/api/timezone/UTC")
+    let worldTimeApiResult = await worldTimeApiResponse.json()
+    if (worldTimeApiResponse.ok) {
+        return worldTimeApiResult.dateTime.slice(0, -9) + "Z"
+    }
+
+    return "N/A"
 }
 
-function validateSession(sessionID) { // false if sid does not exist or expired
+async function validateSession(sessionID) { // false if sid does not exist or expired
     const SESSION_QUERY = DB.prepare(`SELECT session_id, session_expiration FROM user WHERE session_id = '?';`).get(sessionID)
-    return SESSION_QUERY.session_id
+    let dateTime = await getUniversalTime()
+    if (SESSION_QUERY.session_id === sessionID && Date(SESSION_QUERY.session_expiration) > Date(dateTime)) {
+        return true
+    }
+    return false
 }
 
 function getPageIDByTitle(pageTitle) { // undefined if page does NOT exist, returns page primary key
@@ -449,5 +450,3 @@ class ReturnResult {
 // console.log(result)
 
 //validateFolder(1, 0)
-
-console.log(getUniversalTime())
