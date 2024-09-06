@@ -1,7 +1,6 @@
 import { LIBRARY_PATH } from "$env/static/private"
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import cron from 'node-cron';
 import argon2 from "argon2";
 // const options = {};
 export const DB = new Database(LIBRARY_PATH/*, options*/);
@@ -65,12 +64,11 @@ media_revision: denotes what media files are used by each revision.
 */
 
 // TODO: Stat tracking on post/delete functions
+// TODO: Input IDs instead of names
 
-/*
-=== POST FUNCTIONS ===
-*/
+//#region POST FUNCTIONS
 
-async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderName, tags, content, isOpen, isPrivate, authorID, mediaIDs) {
+async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderID, tags, content, isOpen, isPrivate, authorID, mediaIDs) {
     if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (getPageIDByTitle(pageTitle) === undefined) {return ReturnResult(false, 400, "Name taken", pageTitle)}
 
@@ -103,9 +101,6 @@ async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, fo
             tagIDs.push(tagResult)
         }
     })
-
-    let folderID = getFolderIDByName(folderName)
-    if (folderID === undefined) {return ReturnResult(false, 404, "Folder does not exist", folderName)}
 
     let dateTime = await getUniversalTime()
     let pageID =  DB.prepare(`INSERT INTO page (title, date, folder_id, is_deleted, is_open, is_private, secret_code) VALUES(?, ?, ?, 0, ?, ?);`)
@@ -196,14 +191,120 @@ async function postUser(name, password) {
         return ReturnResult(false, 500, "Pasword hashing failed", err.toString())
     }
 }
+//#endregion
 
-/*
-=== GET FUNCTIONS ===
-*/
+//#region GET FUNCTIONS
 
-/*
-=== PUT FUNCTIONS ===
-*/
+//#endregion
+
+//#region PUT FUNCTIONS
+
+// TODO: Check if user is page editor before changing page details
+
+//#region == put page ==
+async function putPageTitle(sessionID, pageID, newTitle) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
+    if (getPageIDByTitle(newTitle) === undefined) {return ReturnResult(false, 400, "Name taken", newTitle)}
+    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    DB.prepare(`UPDATE page SET title = ? WHERE page_id = ?;`).run(newTitle, pageID)
+    return ReturnResult(true, 200, "Page title changed", newTitle)
+}
+
+async function putPageEditors(sessionID, pageID, newEditorIDs) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    newEditorIDs.forEach(editor => {
+        if (!validateUser(editor)) {
+            return ReturnResult(false, 404, "Editor does not exist", editor)
+        }
+    })
+
+    DB.prepare(`DELETE FROM editor_page WHERE page_id = ?`).run(pageID)
+
+    const INSERT_EDITOR = DB.prepare(`INSERT INTO editor_page (user_id, page_id) VALUES(?, ?);`)
+    newEditorIDs.forEach(editorID => {
+        INSERT_EDITOR.run(editorID, pageID)
+    })
+
+    return ReturnResult(true, 200, "Page editors changed", newEditorIDs.join(" / "))
+}
+
+async function putPageViewers(sessionID, pageID, newViewerIDs) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    newViewerIDs.forEach(viewer => {
+        if (!validateUser(viewer)) {
+            return ReturnResult(false, 404, "Viewer does not exist", viewer)
+        }
+    })
+
+    DB.prepare(`DELETE FROM viewer_page WHERE page_id = ?`).run(pageID)
+
+    const INSERT_VIEWER = DB.prepare(`INSERT INTO viewer_page (user_id, page_id) VALUES(?, ?);`)
+    newViewerIDs.forEach(viewerID => {
+        INSERT_VIEWER.run(viewerID, pageID)
+    })
+
+    return ReturnResult(true, 200, "Page viewers changed", newViewerIDs.join(" / "))
+}
+
+async function putPageTags(sessionID, pageID, tagIDs) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    tagIDs.forEach(tagID => {
+        if (!validateTag(tagID)) {
+            return ReturnResult(false, 404, "Tag does not exist", tagID)
+        }
+    })
+
+    DB.prepare(`DELETE FROM page_tag WHERE page_id = ?`).run(pageID)
+
+    const INSERT_TAG = DB.prepare(`INSERT INTO page_tag (page_id, tag_id) VALUES(?, ?);`)
+    tagIDs.forEach(tagID => {
+        INSERT_TAG.run(pageID, tagID)
+    })
+
+    return ReturnResult(true, 200, "Page tags changed", tagIDs.join(" / "))
+}
+
+async function putPageBools(sessionID, pageID, isOpen, isPrivate) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    const OPEN = isOpen ? 1 : 0
+    const PRIVATE = isPrivate ? 1 : 0
+
+    DB.prepare(`UPDATE page SET is_open = ?, is_private = ? WHERE page_id = ?;`).run(OPEN, PRIVATE, pageID)
+
+    return ReturnResult(true, 200, "Page openness/visibility changed", isOpen.toString() + "/" + isPrivate.toString())
+}
+
+async function resetPageSecretCode(sessionID, pageID) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    const CODE = generateRandomString(SECRET_CHARACTERS, SECRET_LENGTH)
+    DB.prepare(`UPDATE page SET secret_code = ? WHERE page_id = ?;`).run(CODE, pageID)
+
+    return ReturnResult(true, 200, "Page secret code reset", CODE)
+}
+//#endregion
 
 async function loginUser(name, password) {
     let userID = getUserIDByName(name)
@@ -228,10 +329,9 @@ async function loginUser(name, password) {
         return ReturnResult(false, 500, "Hash verification failed", err.toString())
     }
 }
+//#endregion
 
-/*
-=== DELETE FUNCTIONS ===
-*/
+//#region DELETE FUNCTIONS
 
 function logoutUser(sessionID) {
     if (DB.prepare(`UPDATE user SET session_id = null WHERE session_id = ?;`).run(sessionID).changes === 0) {
@@ -240,10 +340,9 @@ function logoutUser(sessionID) {
         return ReturnResult(true, 200, "Session ID invalidated", sessionID)
     }
 }
+//#endregion
 
-/*
-=== HELPER FUNCTIONS ===
-*/
+//#region HELPER FUNCTIONS
 
 async function getUniversalTime() { // returns YYYY-MM-DDTHH:MM:SS.sssZ, "N/A" if both time APIs fail
     let timeApiResponse = await fetch("https://timeapi.io/api/time/current/zone?timeZone=UTC")
@@ -263,11 +362,11 @@ async function getUniversalTime() { // returns YYYY-MM-DDTHH:MM:SS.sssZ, "N/A" i
     return "N/A"
 }
 
-async function validateSession(sessionID) { // false if sid does not exist or expired
-    const SESSION_QUERY = DB.prepare(`SELECT session_id, session_expiration FROM user WHERE session_id = ?;`).get(sessionID)
+async function validateSession(sessionID) { // false if sid does not exist or expired, returns user_id otherwise
+    const SESSION_QUERY = DB.prepare(`SELECT user_id, session_id, session_expiration FROM user WHERE session_id = ?;`).get(sessionID)
     let dateTime = await getUniversalTime()
     if (SESSION_QUERY.session_id === sessionID && Date(SESSION_QUERY.session_expiration) > Date(dateTime)) {
-        return true
+        return SESSION_QUERY.user_id
     }
     return false
 }
@@ -280,6 +379,18 @@ function getPageIDByTitle(pageTitle) { // undefined if page does NOT exist, retu
 function validatePage(pageID) { // false if page does NOT exist
     let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM page WHERE page_id = ?);`).get(pageID)
     return result['EXISTS(SELECT 1 FROM page WHERE page_id = ?)'] === 1;
+}
+
+function validatePageEditAuthorization(pageID, userID) { // false if user is not page creator or page editor or admin (on a closed page)
+    const PAGE_RESULTS = DB.prepare(`SELECT page_id, user_id, is_open FROM page WHERE page_id = ?;`).get(pageID)
+    if (PAGE_RESULTS.is_open === 1 || PAGE_RESULTS.user_id === userID) {return true}
+
+    if (DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`).get(userID).is_admin === 1) {return true}
+
+    const EDITOR_RESULTS = DB.prepare(`SELECT EXISTS(SELECT 1 FROM editor_page WHERE user_id = ? AND page_id = ?)`).get(userID, pageID)
+    if (EDITOR_RESULTS['EXISTS(SELECT 1 FROM editor_page WHERE user_id = ? AND page_id = ?)'] === 1) {return true}
+
+    return false
 }
 
 function getFolderIDByName(folderName) { // undefined if folder does NOT exist, returns folder primary key
@@ -338,6 +449,7 @@ function generateRandomString(characters, size) {
 
     return output.join('')
 }
+//#endregion
 
 const SETUP_TABLES = [
     DB.prepare(`
