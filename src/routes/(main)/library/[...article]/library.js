@@ -17,6 +17,7 @@ const SECRET_LENGTH = 12
 const SESSION_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_" // base64
 const SESSION_LENGTH = 128
 
+// TODO: Stat tracking on post/delete functions
 // TODO: Return more explanatory 403 error messages
 
 /*
@@ -67,32 +68,18 @@ media_revision: denotes what media files are used by each revision.
 
 //#region POST FUNCTIONS
 
-// TODO: Stat tracking on post/delete functions
 // TODO: Input IDs instead of names
 
 async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderID, tags, content, isOpen, isPrivate, authorID, mediaIDs) {
     if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (getPageIDByTitle(pageTitle) === undefined) {return ReturnResult(false, 400, "Name taken", pageTitle)}
 
-    let editorIDs = []
-    allowedEditors.forEach(editor => {
-        let userResult = getUserIDByName(editor)
-        if (userResult === undefined) {
-            return ReturnResult(false, 404, "Editor does not exist", editor)
-        } else {
-            editorIDs.push(userResult)
-        }
-    })
+    let unvalidatedUser
+    allowedEditors.forEach(editor => {if (!validateUser(editor)) {unvalidatedUser = editor}})
+    if (unvalidatedUser !== undefined) {return ReturnResult(false, 404, "Editor does not exist", unvalidatedUser)}
 
-    let viewerIDs = []
-    allowedViewers.forEach(viewer => {
-        let userResult = getUserIDByName(viewer)
-        if (userResult === undefined) {
-            return ReturnResult(false, 404, "Viewer does not exist", viewer)
-        } else {
-            viewerIDs.push(userResult)
-        }
-    })
+    allowedViewers.forEach(viewer => {if (!validateUser(viewer)) {unvalidatedUser = viewer}})
+    if (unvalidatedUser !== undefined) {return ReturnResult(false, 404, "Viewer does not exist", unvalidatedUser)}
 
     let tagIDs = []
     tags.forEach(tag => { // creates new tag if name is invalid
@@ -221,11 +208,9 @@ async function putPageEditors(sessionID, pageID, newEditorIDs) {
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
     if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
 
-    newEditorIDs.forEach(editor => {
-        if (!validateUser(editor)) {
-            return ReturnResult(false, 404, "Editor does not exist", editor)
-        }
-    })
+    let unvalidatedUser
+    newEditorIDs.forEach(editor => {if (!validateUser(editor)) {unvalidatedUser = editor}})
+    if (unvalidatedUser !== undefined) {return ReturnResult(false, 404, "Editor does not exist", unvalidatedUser)}
 
     DB.prepare(`DELETE FROM editor_page WHERE page_id = ?`).run(pageID)
 
@@ -243,11 +228,9 @@ async function putPageViewers(sessionID, pageID, newViewerIDs) {
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
     if (!validatePageEditAuthorization(pageID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
 
-    newViewerIDs.forEach(viewer => {
-        if (!validateUser(viewer)) {
-            return ReturnResult(false, 404, "Viewer does not exist", viewer)
-        }
-    })
+    let unvalidatedUser
+    newViewerIDs.forEach(viewer => {if (!validateUser(viewer)) {unvalidatedUser = viewer}})
+    if (unvalidatedUser !== undefined) {return ReturnResult(false, 404, "Editor does not exist", unvalidatedUser)}
 
     DB.prepare(`DELETE FROM viewer_page WHERE page_id = ?`).run(pageID)
 
