@@ -18,7 +18,6 @@ const SESSION_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
 const SESSION_LENGTH = 128
 
 // TODO: Stat tracking on post/delete functions
-// TODO: Return more explanatory 403 error messages
 
 /*
 === MAIN ===
@@ -68,11 +67,11 @@ media_revision: denotes what media files are used by each revision.
 
 //#region POST FUNCTIONS
 
-// TODO: Input IDs instead of names
-
-async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderID, tags, content, isOpen, isPrivate, authorID, mediaIDs) {
-    if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderID, tags, content, isOpen, isPrivate, mediaIDs) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (getPageIDByTitle(pageTitle) === undefined) {return ReturnResult(false, 400, "Name taken", pageTitle)}
+    if (folderID !== null && !validateFolderEditAuthorization(folderID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized to add page to this folder")}
 
     let unvalidatedUser
     allowedEditors.forEach(editor => {if (!validateUser(editor)) {unvalidatedUser = editor}})
@@ -107,16 +106,18 @@ async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, fo
         DB.prepare(`INSERT INTO page_tag (page_id, tag_id) VALUES(?, ?);`).run(pageID, tagID)
     })
 
-    let revisionResult = postRevision(pageID, content, authorID, mediaIDs)
+    let revisionResult = postRevision(sessionID, pageID, content, mediaIDs)
     if (!revisionResult.okay) {return revisionResult}
     else {return ReturnResult(true, 201, "Page created", pageID)}
 }
 
-async function postRevision(sessionID, pageID, content, authorID, mediaIDs) { // TODO: validate text content
-    if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+async function postRevision(sessionID, pageID, content, mediaIDs) { // TODO: validate text content
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
+    if (!validateUser(USER_ID)) {return ReturnResult(false, 404, "Author does not exist", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized to add revision to page", USER_ID)}
 
-    if (!validateUser(authorID)) {return ReturnResult(false, 404, "Author does not exist", authorID)}
 
     mediaIDs.forEach(mediaID => {
         if (!validateMedia(mediaID)) {return ReturnResult(false, 404, "Media does not exist", mediaID)}
@@ -125,7 +126,7 @@ async function postRevision(sessionID, pageID, content, authorID, mediaIDs) { //
     let textID = DB.prepare(`INSERT INTO text (text) VALUES(?);`).run(content).lastInsertRowid
 
     let dateTime = await getUniversalTime()
-    let revisionID = DB.prepare(`INSERT INTO revision (date, page_id, text_id, user_id) VALUES(?, ?, ?, ?);`).run(dateTime, pageID, textID, authorID).lastInsertRowid
+    let revisionID = DB.prepare(`INSERT INTO revision (date, page_id, text_id, user_id) VALUES(?, ?, ?, ?);`).run(dateTime, pageID, textID, USER_ID).lastInsertRowid
 
     mediaIDs.forEach(mediaID => {
         DB.prepare(`INSERT INTO media_revision (media_id, revision_id) VALUES(?, ?);`).run(mediaID, revisionID)
@@ -146,7 +147,7 @@ async function postFolder(sessionID, folderName, parentFolder) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (parentFolder !== null && !validateFolder(parentFolder)) {return ReturnResult(false, 404, "Parent folder does not exist", parentFolder)}
-    if (parentFolder !== null && !validateFolderEditAuthorization(parentFolder, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (parentFolder !== null && !validateFolderEditAuthorization(parentFolder, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized to add subfolder to this folder", USER_ID)}
     if (validateFolderName(folderName, parentFolder) !== undefined) {return ReturnResult(false, 400, "Folder already exists", folderName)}
     let folderID = DB.prepare(`INSERT INTO tag (name) VALUES(?, ?);`).run(folderName, parentFolder).lastInsertRowid
 
@@ -186,6 +187,7 @@ async function postUser(name, password) {
 
 //#region GET FUNCTIONS
 
+
 //#endregion
 
 //#region PUT FUNCTIONS
@@ -196,7 +198,7 @@ async function putPageTitle(sessionID, pageID, newTitle) {
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
     if (getPageIDByTitle(newTitle) === undefined) {return ReturnResult(false, 400, "Name taken", newTitle)}
-    if (!validatePageEditAuthorization(pageID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized to edit this page", USER_ID)}
 
     DB.prepare(`UPDATE page SET title = ? WHERE page_id = ?;`).run(newTitle, pageID)
     return ReturnResult(true, 200, "Page title changed", newTitle)
@@ -206,7 +208,7 @@ async function putPageEditors(sessionID, pageID, newEditorIDs) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized to edit this page", USER_ID)}
 
     let unvalidatedUser
     newEditorIDs.forEach(editor => {if (!validateUser(editor)) {unvalidatedUser = editor}})
@@ -226,7 +228,7 @@ async function putPageViewers(sessionID, pageID, newViewerIDs) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validatePageEditAuthorization(pageID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized to edit this page", USER_ID)}
 
     let unvalidatedUser
     newViewerIDs.forEach(viewer => {if (!validateUser(viewer)) {unvalidatedUser = viewer}})
@@ -246,7 +248,7 @@ async function putPageTags(sessionID, pageID, tagNames) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validatePageEditAuthorization(pageID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized to edit this page", USER_ID)}
 
     let tagIDs = []
     tagNames.forEach(tag => { // creates new tag if name is invalid
@@ -272,7 +274,7 @@ async function putPageBools(sessionID, pageID, isOpen, isPrivate) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized to edit this page", USER_ID)}
 
     const OPEN = isOpen ? 1 : 0
     const PRIVATE = isPrivate ? 1 : 0
@@ -286,7 +288,7 @@ async function resetPageSecretCode(sessionID, pageID) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized to edit this page", USER_ID)}
 
     const CODE = generateRandomString(SECRET_CHARACTERS, SECRET_LENGTH)
     DB.prepare(`UPDATE page SET secret_code = ? WHERE page_id = ?;`).run(CODE, pageID)
@@ -300,7 +302,7 @@ async function putFolderName(sessionID, folderID, folderName) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validateFolder(folderID)) {return ReturnResult(false, 404, "Folder does not exist", folderID)}
-    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized to edit this folder", USER_ID)}
     const PARENT_ID = DB.prepare(`SELECT folder_id, parent FROM folder WHERE folder_id = ?;`).get(folderID).parent
     if (!validateFolderName(folderName, PARENT_ID)) {return ReturnResult(false, 400, "Folder name already exists in parent folder", folderName)}
 
@@ -312,7 +314,7 @@ async function putFolderOpen(sessionID, folderID, isOpen) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validateFolder(folderID)) {return ReturnResult(false, 404, "Folder does not exist", folderID)}
-    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized to edit this folder", USER_ID)}
 
     DB.prepare(`UPDATE folder SET is_open = ? WHERE folder_id = ?;`).run(isOpen ? 1 : 0, folderID)
     return ReturnResult(true, 200, "Folder openness changed", isOpen.toString())
@@ -323,8 +325,8 @@ async function putFolderParent(sessionID, folderID, parentFolderID) {
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validateFolder(folderID)) {return ReturnResult(false, 404, "Folder does not exist", folderID)}
     if (!validateFolder(parentFolderID)) {return ReturnResult(false, 404, "Parent folder does not exist", parentFolderID)}
-    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
-    if (!validateFolderEditAuthorization(parentFolderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized to edit this folder", USER_ID)}
+    if (!validateFolderEditAuthorization(parentFolderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized to add subfolder to this folder", USER_ID)}
     if (!validateFolderName(folderName, parentFolderID)) {return ReturnResult(false, 400, "Folder name already exists in parent folder", folderName)}
 
     DB.prepare(`UPDATE folder SET parent = ? WHERE folder_id = ?;`).run(parentFolderID, folderID)
@@ -362,7 +364,7 @@ async function putUserPassword(sessionID, password) {
 async function putUserTrusted(sessionID, targetID, isTrusted) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
-    if (!validateUserAdmin(USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validateUserAdmin(USER_ID)) {return ReturnResult(false, 403, "Unauthorized to edit this user", USER_ID)}
     if (!validateUser(targetID)) {return ReturnResult(false, 404, "Invalid target", targetID)}
 
     DB.prepare(`UPDATE user SET is_trusted = ? WHERE user_id = ?;`).run(isTrusted ? 1 : 0, targetID)
@@ -371,7 +373,7 @@ async function putUserTrusted(sessionID, targetID, isTrusted) {
 async function putUserAdmin(sessionID, targetID, isAdmin) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
-    if (!validateUserOwner(USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validateUserOwner(USER_ID)) {return ReturnResult(false, 403, "Unauthorized to edit this user", USER_ID)}
     if (!validateUser(targetID)) {return ReturnResult(false, 404, "Invalid target", targetID)}
 
     DB.prepare(`UPDATE user SET is_admin = ? WHERE user_id = ?;`).run(isAdmin ? 1 : 0, targetID)
@@ -408,7 +410,7 @@ async function deletePage(sessionID, pageID, deleted) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized to delete this page", USER_ID)}
 
     DB.prepare(`UPDATE page SET is_deleted = ? WHERE page_id = ?;`).run(deleted ? 1 : 0, pageID)
     return ReturnResult(true, 200, "Page deleted", pageID)
@@ -418,7 +420,7 @@ async function deleteFolder(sessionID, folderID) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validateFolder(folderID)) {return ReturnResult(false, 404, "Folder does not exist", folderID)}
-    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized to delete this folder", USER_ID)}
 
     const PAGE_QUERY = DB.prepare(`SELECT page_id, folder_id FROM page WHERE folder_id = ?;`).all(folderID)
     if (PAGE_QUERY.length > 0) {
@@ -466,7 +468,7 @@ async function deleteComment(sessionID, commentID, deleted) {
     if (!validateComment(commentID)) {return ReturnResult(false, 404, "Comment does not exist", commentID)}
 
     const COMMENT_AUTHOR = DB.prepare(`SELECT comment_id, user_id FROM comment WHERE comment_id = ?;`).get(commentID).user_id
-    if (COMMENT_AUTHOR !== USER_ID && !validateUserAdmin(USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (COMMENT_AUTHOR !== USER_ID && !validateUserAdmin(USER_ID)) {return ReturnResult(false, 403, "Unauthorized to delete this comment", USER_ID)}
 
     DB.prepare(`UPDATE comment SET is_deleted = ? WHERE comment_id = ?;`).run(deleted ? 1 : 0, commentID)
     return ReturnResult(true, 200, "Comment deleted", commentID)
@@ -475,7 +477,7 @@ async function deleteComment(sessionID, commentID, deleted) {
 async function deleteUser(sessionID, targetID, deleted) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
-    if (USER_ID !== targetID && !validateUserAdmin(USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (USER_ID !== targetID && !validateUserAdmin(USER_ID)) {return ReturnResult(false, 403, "Unauthorized to delete this user", USER_ID)}
 
     DB.prepare(`UPDATE user SET is_deleted = ? WHERE user_id = ?;`).run(deleted ? 1 : 0, targetID)
     return ReturnResult(true, 200, "User deleted", targetID)
@@ -484,8 +486,8 @@ async function deleteUser(sessionID, targetID, deleted) {
 async function deleteUserHard(sessionID, targetID, secret_password) { // PERMANENT!!!!!! will fuck up every instance of this user's ID
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
-    if (!validateUserOwner(USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
-    if (secret_password !== SECRET_PASSWORD) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validateUserOwner(USER_ID)) {return ReturnResult(false, 403, "Unauthorized to delete this user", USER_ID)}
+    if (secret_password !== SECRET_PASSWORD) {return ReturnResult(false, 403, "Unauthorized to delete this user", USER_ID)}
 
     DB.prepare(`DELETE FROM user WHERE user_id = ?;`).run(targetID)
     DB.prepare(`UPDATE page SET user_id = null WHERE user_id = ?`).run(targetID)
