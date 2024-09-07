@@ -1,4 +1,4 @@
-import { LIBRARY_PATH } from "$env/static/private"
+import { LIBRARY_PATH, SECRET_PASSWORD } from "$env/static/private"
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import argon2 from "argon2";
@@ -32,7 +32,7 @@ tag: used to categorize pages and get collections of them.
     tag_id, name
 
 user: marks comment authors, revision writers, media uploaders, and who is allowed to edit a page. (admins can perform various authoritative actions.)
-    user_id (uuidv4), name, password, session_id, session_expiration, join_date, is_admin, is_trusted, is_suspended, is_owner
+    user_id (uuidv4), name, password, session_id, session_expiration, join_date, is_admin, is_trusted, is_deleted, is_owner
 
 media: marks uploader and filenames.
     media_id, filename, user_id
@@ -188,7 +188,7 @@ async function postUser(name, password) {
 
     try {
         let hash = await argon2.hash(password)
-        let userID = DB.prepare(`INSERT INTO user (user_id, name, password, join_date, is_admin, is_suspended) VALUES(?, ?, ?, ?, 0, 0);`)
+        let userID = DB.prepare(`INSERT INTO user (user_id, name, password, join_date, is_admin, is_deleted) VALUES(?, ?, ?, ?, 0, 0);`)
             .run(uuidv4(), name, hash, getUniversalTime()).lastInsertRowid
         return ReturnResult(true, 201, "User created", userID)
     } catch (err) {
@@ -209,7 +209,7 @@ async function putPageTitle(sessionID, pageID, newTitle) {
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
     if (getPageIDByTitle(newTitle) === undefined) {return ReturnResult(false, 400, "Name taken", newTitle)}
-    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
 
     DB.prepare(`UPDATE page SET title = ? WHERE page_id = ?;`).run(newTitle, pageID)
     return ReturnResult(true, 200, "Page title changed", newTitle)
@@ -219,7 +219,7 @@ async function putPageEditors(sessionID, pageID, newEditorIDs) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
 
     newEditorIDs.forEach(editor => {
         if (!validateUser(editor)) {
@@ -241,7 +241,7 @@ async function putPageViewers(sessionID, pageID, newViewerIDs) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
 
     newViewerIDs.forEach(viewer => {
         if (!validateUser(viewer)) {
@@ -263,7 +263,7 @@ async function putPageTags(sessionID, pageID, tagNames) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
 
     let tagIDs = []
     tagNames.forEach(tag => { // creates new tag if name is invalid
@@ -289,7 +289,7 @@ async function putPageBools(sessionID, pageID, isOpen, isPrivate) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
 
     const OPEN = isOpen ? 1 : 0
     const PRIVATE = isPrivate ? 1 : 0
@@ -303,7 +303,7 @@ async function resetPageSecretCode(sessionID, pageID) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
 
     const CODE = generateRandomString(SECRET_CHARACTERS, SECRET_LENGTH)
     DB.prepare(`UPDATE page SET secret_code = ? WHERE page_id = ?;`).run(CODE, pageID)
@@ -421,6 +421,100 @@ async function loginUser(name, password) {
 //#endregion
 
 //#region DELETE FUNCTIONS
+async function deletePage(sessionID, pageID, deleted) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
+    if (!validatePageEditAuthorization(pageID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    DB.prepare(`UPDATE page SET is_deleted = ? WHERE page_id = ?;`).run(deleted ? 1 : 0, pageID)
+    return ReturnResult(true, 200, "Page deleted", pageID)
+}
+
+async function deleteFolder(sessionID, folderID) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validateFolder(folderID)) {return ReturnResult(false, 404, "Folder does not exist", folderID)}
+    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    const PAGE_QUERY = DB.prepare(`SELECT page_id, folder_id FROM page WHERE folder_id = ?;`).all(folderID)
+    if (PAGE_QUERY.length > 0) {
+        let results = []
+        PAGE_QUERY.forEach(element => {
+            results.push(element.page_id)
+        })
+        return ReturnResult(false, 400, "Folder still contains pages", results.join(" / "))
+    }
+
+    const FOLDER_QUERY = DB.prepare(`SELECT folder_id, parent FROM folder WHERE parent = ?;`).all(folderID)
+    if (FOLDER_QUERY.length > 0) {
+        let results = []
+        FOLDER_QUERY.forEach(element => {
+            results.push(element.folder_id)
+        })
+        return ReturnResult(false, 400, "Folder still contains subfolders", results.join(" / "))
+    }
+
+    DB.prepare(`DELETE FROM folder WHERE folder_id = ?;`).run(folderID)
+    return ReturnResult(true, 200, "Folder deleted", folderID)
+}
+
+async function deleteTag(sessionID, tagID) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validateTag(tagID)) {return ReturnResult(false, 404, "Tag does not exist", tagID)}
+
+    const TAG_QUERY = DB.prepare(`SELECT page_id, tag_id FROM page_tag WHERE tag_id = ?;`).all(tagID)
+    if (TAG_QUERY.length > 0) {
+        let results = []
+        TAG_QUERY.forEach(element => {
+            results.push(element.page_id)
+        })
+        return ReturnResult(false, 400, "Pages still use tag", results.join(" / "))
+    }
+
+    DB.prepare(`DELETE FROM tag WHERE tag_id = ?;`).run(tagID)
+    return ReturnResult(true, 200, "Tag deleted", tagID)
+}
+
+async function deleteComment(sessionID, commentID, deleted) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validateComment(commentID)) {return ReturnResult(false, 404, "Comment does not exist", commentID)}
+
+    const COMMENT_AUTHOR = DB.prepare(`SELECT comment_id, user_id FROM comment WHERE comment_id = ?;`).get(commentID).user_id
+    if (COMMENT_AUTHOR !== USER_ID && !validateUserAdmin(USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    DB.prepare(`UPDATE comment SET is_deleted = ? WHERE comment_id = ?;`).run(deleted ? 1 : 0, commentID)
+    return ReturnResult(true, 200, "Comment deleted", commentID)
+}
+
+async function deleteUser(sessionID, targetID, deleted) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (USER_ID !== targetID && !validateUserAdmin(USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    DB.prepare(`UPDATE user SET is_deleted = ? WHERE user_id = ?;`).run(deleted ? 1 : 0, targetID)
+    return ReturnResult(true, 200, "User deleted", targetID)
+}
+
+async function deleteUserHard(sessionID, targetID, secret_password) { // PERMANENT!!!!!! will fuck up every instance of this user's ID
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validateUserOwner(USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (secret_password !== SECRET_PASSWORD) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    DB.prepare(`DELETE FROM user WHERE user_id = ?;`).run(targetID)
+    DB.prepare(`UPDATE page SET user_id = null WHERE user_id = ?`).run(targetID)
+    DB.prepare(`UPDATE comment SET user_id = null WHERE user_id = ?`).run(targetID)
+    DB.prepare(`UPDATE revision SET user_id = null WHERE user_id = ?`).run(targetID)
+    DB.prepare(`UPDATE folder SET user_id = null WHERE user_id = ?`).run(targetID)
+    DB.prepare(`UPDATE media SET user_id = null WHERE user_id = ?`).run(targetID)
+    DB.prepare(`DELETE FROM editor_page WHERE user_id = ?`).run(targetID)
+    DB.prepare(`DELETE FROM viewer_page WHERE user_id = ?`).run(targetID)
+
+    return ReturnResult(true, 200, "User HARD deleted", targetID)
+}
 
 function logoutUser(sessionID) {
     if (DB.prepare(`UPDATE user SET session_id = null WHERE session_id = ?;`).run(sessionID).changes === 0) {
@@ -461,11 +555,15 @@ async function validateSession(sessionID) { // false if sid does not exist or ex
 }
 
 function validateUserAdmin(userID) { // false if user is NOT admin
-    return DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`).get(userID).is_admin === 1 ? true : false
+    const RESULT = DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`)
+    if (RESULT === undefined) {return false}
+    return RESULT.get(userID).is_admin === 1 ? true : false
 }
 
 function validateUserOwner(userID) { // false if user is NOT owner
-    return DB.prepare(`SELECT user_id, is_owner FROM user WHERE user_id = ?;`).get(userID).is_owner === 1 ? true : false
+    const RESULT = DB.prepare(`SELECT user_id, is_owner FROM user WHERE user_id = ?;`)
+    if (RESULT === undefined) {return false}
+    return RESULT.get(userID).is_owner === 1 ? true : false
 }
 
 function getPageIDByTitle(pageTitle) { // undefined if page does NOT exist, returns page primary key
@@ -478,12 +576,15 @@ function validatePage(pageID) { // false if page does NOT exist
     return result['EXISTS(SELECT 1 FROM page WHERE page_id = ?)'] === 1;
 }
 
-function validatePageEditAuthorization(pageID, userID) { // false if user is not page creator or page editor or admin (on a closed page)
+function validatePageEditAuthorization(pageID, userID, isCritical) { // false if user is not page creator or page editor or admin (on a closed page). isCritical = true means return false if not creator or admin (no editor or open)
     const PAGE_RESULTS = DB.prepare(`SELECT page_id, user_id, is_open FROM page WHERE page_id = ?;`).get(pageID)
-    if (PAGE_RESULTS.is_open === 1 || PAGE_RESULTS.user_id === userID) {return true}
+    if (PAGE_RESULTS.user_id === userID) {return true}
+    if (PAGE_RESULTS.is_open === 1 && !isCritical) {return true}
 
-    if (DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`).get(userID).is_admin === 1) {return true}
+    const USER_RESULTS = DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`).get(userID)
+    if (USER_RESULTS === undefined || USER_RESULTS.is_admin === 1) {return true}
 
+    if (isCritical) {return false}
     const EDITOR_RESULTS = DB.prepare(`SELECT EXISTS(SELECT 1 FROM editor_page WHERE user_id = ? AND page_id = ?)`).get(userID, pageID)
     if (EDITOR_RESULTS['EXISTS(SELECT 1 FROM editor_page WHERE user_id = ? AND page_id = ?)'] === 1) {return true}
 
@@ -503,6 +604,7 @@ function validateFolderName(folderName, parentID) { // false if folder name does
 function validateFolderEditAuthorization(folderID, userID, isCritical) { // false if user is NOT creator of folder OR admin AND parent folder is not open (if noncritical edit)
     if (DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`).get(userID).is_admin === 1) {return true}
     let result = DB.prepare(`SELECT folder_id, user_id, parent FROM folder WHERE folder_id = ?;`).get(folderID)
+    if (result === undefined) {return true}
     if (!isCritical && DB.prepare(`SELECT folder_id, is_open FROM folder WHERE folder_id = ?;`).get(result.parent).is_open) {return true}
     return userID === result.user_id
 }
@@ -592,7 +694,7 @@ const SETUP_TABLES = [
             join_date TEXT NOT NULL,
             is_admin INTEGER NOT NULL DEFAULT 0,
             is_trusted INTEGER NOT NULL DEFAULT 0,
-            is_suspended INTEGER NOT NULL DEFAULT 0,
+            is_deleted INTEGER NOT NULL DEFAULT 0,
             is_owner INTEGER NOT NULL DEFAULT 0
         );
     `),
