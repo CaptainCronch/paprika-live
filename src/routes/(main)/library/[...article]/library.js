@@ -349,6 +349,41 @@ async function getTextByID(sessionID, revisionID) {
     return ReturnResult(true, 200, "Retrieved text", DB.prepare(`SELECT text_id, text FROM text WHERE text_id = ?;`).get(REVISION.text_id))
 }
 //#endregion
+
+//#region == get tag ==
+async function getTagByID(tagID) {
+    if (!validateTag(tagID)) {return ReturnResult(false, 404, "Tag not found", tagID)}
+    const TAG = DB.prepare(`SELECT * FROM tag WHERE tag_id = ?;`).get(tagID)
+
+    return ReturnResult(true, 200, "Tag retrieved", {'tagID': TAG.tag_id, 'name': TAG.name})
+}
+
+async function getTagByName(name) {
+    const TAG_ID = getTagIDFromName(name)
+    if (TAG_ID === undefined) {return ReturnResult(false, 404, "Tag with name not found", name)}
+    const TAG = DB.prepare(`SELECT * FROM tag WHERE tag_id = ?;`).get(TAG_ID)
+
+    return ReturnResult(true, 200, "Tag retrieved", {'tagID': TAG.tag_id, 'name': TAG.name})
+}
+
+async function getManyTagsByNamePattern(pattern) {
+    const TAGS = DB.prepare(`SELECT * FROM tag WHERE name LIKE %?%;`).all(pattern)
+    if (TAGS.length < 1) {return ReturnResult(false, 404, "No tags found matching pattern")}
+
+    let output = []
+    TAGS.forEach(element => {output.push({'tagID': element.tag_id, 'name': element.name})})
+
+    return ReturnResult(true, 200, "Tags retrieved", output)
+}
+
+async function getAllTags() {
+    const TAGS = DB.prepare(`SELECT * FROM tag;`).all()
+    let output = []
+    TAGS.forEach(element => {output.push({'tagID': element.tag_id, 'name': element.name})})
+
+    return ReturnResult(true, 200, "Tags retrieved", output)
+}
+//#endregion
 //#endregion
 
 //#region PUT FUNCTIONS
