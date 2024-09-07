@@ -32,7 +32,7 @@ tag: used to categorize pages and get collections of them.
     tag_id, name
 
 user: marks comment authors, revision writers, media uploaders, and who is allowed to edit a page. (admins can perform various authoritative actions.)
-    user_id (uuidv4), name, password, session_id, session_expiration, join_date, is_admin, is_trusted, is_suspended
+    user_id (uuidv4), name, password, session_id, session_expiration, join_date, is_admin, is_trusted, is_suspended, is_owner
 
 media: marks uploader and filenames.
     media_id, filename, user_id
@@ -349,6 +349,51 @@ async function putFolderParent(sessionID, folderID, parentFolderID) {
 }
 //#endregion
 
+//#region == put user ==
+async function putUserName(sessionID, name) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (getUserIDByName(name) !== undefined) {return ReturnResult(false, 400, "Name taken", name)}
+    if (name.length > USERNAME_MAX_LENGTH) {return ReturnResult(false, 400, "Username too long", name.length)}
+    if (name.match(USERNAME_REGEX === null)) {return ReturnResult(false, 400, "Invalid username character(s)", "Valid characters are alphanumeric and -_")}
+
+    DB.prepare(`UPDATE user SET name = ? WHERE user_id = ?;`).run(name, USER_ID)
+    return ReturnResult(true, 200, "Username changed", name)
+}
+
+async function putUserPassword(sessionID, password) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (password.length < PASSWORD_MIN_LENGTH) {return ReturnResult(false, 400, "Password not long enough", password.length)}
+    if (password.match(PASSWORD_REGEX) === null) {return ReturnResult(false, 400, "Invalid password character(s)", `Valid characters are alphanumeric and ~\`!@#$%^&*()_\-+={[}\]|\\:;"'<,>.?/`)}
+
+    try {
+        let hash = await argon2.hash(password)
+        DB.prepare(`UPDATE user SET password = ? WHERE user_id = ?;`).run(hash, USER_ID)
+        return ReturnResult(true, 200, "Password changed", "Hashed and everything too")
+    } catch (err) {
+        return ReturnResult(false, 500, "Pasword hashing failed", err.toString())
+    }
+}
+
+async function putUserTrusted(sessionID, targetID, isTrusted) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validateUserAdmin(USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validateUser(targetID)) {return ReturnResult(false, 404, "Invalid target", targetID)}
+
+    DB.prepare(`UPDATE user SET is_trusted = ? WHERE user_id = ?;`).run(isTrusted ? 1 : 0, targetID)
+}
+
+async function putUserAdmin(sessionID, targetID, isAdmin) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validateUserOwner(USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validateUser(targetID)) {return ReturnResult(false, 404, "Invalid target", targetID)}
+
+    DB.prepare(`UPDATE user SET is_admin = ? WHERE user_id = ?;`).run(isAdmin ? 1 : 0, targetID)
+}
+
 async function loginUser(name, password) {
     let userID = getUserIDByName(name)
     if (userID === undefined) {return ReturnResult(false, 404, "Username does not exist", name)}
@@ -372,6 +417,7 @@ async function loginUser(name, password) {
         return ReturnResult(false, 500, "Hash verification failed", err.toString())
     }
 }
+//#endregion
 //#endregion
 
 //#region DELETE FUNCTIONS
@@ -412,6 +458,14 @@ async function validateSession(sessionID) { // false if sid does not exist or ex
         return SESSION_QUERY.user_id
     }
     return false
+}
+
+function validateUserAdmin(userID) { // false if user is NOT admin
+    return DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`).get(userID).is_admin === 1 ? true : false
+}
+
+function validateUserOwner(userID) { // false if user is NOT owner
+    return DB.prepare(`SELECT user_id, is_owner FROM user WHERE user_id = ?;`).get(userID).is_owner === 1 ? true : false
 }
 
 function getPageIDByTitle(pageTitle) { // undefined if page does NOT exist, returns page primary key
@@ -538,7 +592,8 @@ const SETUP_TABLES = [
             join_date TEXT NOT NULL,
             is_admin INTEGER NOT NULL DEFAULT 0,
             is_trusted INTEGER NOT NULL DEFAULT 0,
-            is_suspended INTEGER NOT NULL DEFAULT 0
+            is_suspended INTEGER NOT NULL DEFAULT 0,
+            is_owner INTEGER NOT NULL DEFAULT 0
         );
     `),
     DB.prepare(`
@@ -634,9 +689,7 @@ const SETUP_TABLES = [
     `)
 ];
 
-SETUP_TABLES.forEach((stmt) => {
-    stmt.run()
-})
+SETUP_TABLES.forEach((stmt) => {stmt.run()})
 
 class ReturnResult {
     constructor(okay, code, reason, value) {
