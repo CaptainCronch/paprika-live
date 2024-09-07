@@ -12,10 +12,12 @@ const USERNAME_MAX_LENGTH = 24
 const PASSWORD_REGEX = /^[\w~\`!@#$%^&*()\-+={[}\]|\\:;"'<,>.?/]+$/
 const PASSWORD_MIN_LENGTH = 6
 
-const SECRET_CHARACTERS = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz" // base52
+const SECRET_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789" // base52
 const SECRET_LENGTH = 12
 const SESSION_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_" // base64
 const SESSION_LENGTH = 128
+
+// TODO: Return more explanatory 403 error messages
 
 /*
 === MAIN ===
@@ -30,13 +32,13 @@ tag: used to categorize pages and get collections of them.
     tag_id, name
 
 user: marks comment authors, revision writers, media uploaders, and who is allowed to edit a page. (admins can perform various authoritative actions.)
-    user_id (uuidv4), name, password, session_id, session_expiration, join_date, is_admin, is_suspended
+    user_id (uuidv4), name, password, session_id, session_expiration, join_date, is_admin, is_trusted, is_suspended
 
 media: marks uploader and filenames.
     media_id, filename, user_id
 
 folder: used to categorize pages in a hierarchy. folders can contain other folders. it is the main way to organize pages.
-    folder_id, name, parent
+    folder_id, name, parent, user_id, is_open
 
 comment: contains its own text content, a posting date, an optional comment that it replies to, id of which page it is on, and the user that posted it.
     comment_id, text, date, parent, page_id, user_id, is_deleted
@@ -63,10 +65,10 @@ media_revision: denotes what media files are used by each revision.
     media_id, revision_id
 */
 
+//#region POST FUNCTIONS
+
 // TODO: Stat tracking on post/delete functions
 // TODO: Input IDs instead of names
-
-//#region POST FUNCTIONS
 
 async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderID, tags, content, isOpen, isPrivate, authorID, mediaIDs) {
     if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
@@ -93,7 +95,7 @@ async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, fo
     })
 
     let tagIDs = []
-    tags.forEach(tag => { // creates new tag if input is invalid
+    tags.forEach(tag => { // creates new tag if name is invalid
         let tagResult = getTagIDByName(tag)
         if (tagResult === undefined) {
             tagIDs.push(DB.prepare(`INSERT INTO tag (name) VALUES(?);`).run(tag).lastInsertRowid)
@@ -153,9 +155,11 @@ async function postTag(sessionID, tagName) {
     return ReturnResult(true, 201, "Tag created", tagID)
 }
 
-async function postFolder(sessionID, folderName, parentFolder = null) {
-    if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+async function postFolder(sessionID, folderName, parentFolder) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (parentFolder !== null && !validateFolder(parentFolder)) {return ReturnResult(false, 404, "Parent folder does not exist", parentFolder)}
+    if (parentFolder !== null && !validateFolderEditAuthorization(parentFolder, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
     if (validateFolderName(folderName, parentFolder) !== undefined) {return ReturnResult(false, 400, "Folder already exists", folderName)}
     let folderID = DB.prepare(`INSERT INTO tag (name) VALUES(?, ?);`).run(folderName, parentFolder).lastInsertRowid
 
@@ -198,8 +202,6 @@ async function postUser(name, password) {
 //#endregion
 
 //#region PUT FUNCTIONS
-
-// TODO: Check if user is page editor before changing page details
 
 //#region == put page ==
 async function putPageTitle(sessionID, pageID, newTitle) {
@@ -257,15 +259,19 @@ async function putPageViewers(sessionID, pageID, newViewerIDs) {
     return ReturnResult(true, 200, "Page viewers changed", newViewerIDs.join(" / "))
 }
 
-async function putPageTags(sessionID, pageID, tagIDs) {
+async function putPageTags(sessionID, pageID, tagNames) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
     if (!validatePageEditAuthorization(pageID, USER_ID)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
 
-    tagIDs.forEach(tagID => {
-        if (!validateTag(tagID)) {
-            return ReturnResult(false, 404, "Tag does not exist", tagID)
+    let tagIDs = []
+    tagNames.forEach(tag => { // creates new tag if name is invalid
+        let tagResult = getTagIDByName(tag)
+        if (tagResult === undefined) {
+            tagIDs.push(DB.prepare(`INSERT INTO tag (name) VALUES(?);`).run(tag).lastInsertRowid)
+        } else {
+            tagIDs.push(tagResult)
         }
     })
 
@@ -303,6 +309,43 @@ async function resetPageSecretCode(sessionID, pageID) {
     DB.prepare(`UPDATE page SET secret_code = ? WHERE page_id = ?;`).run(CODE, pageID)
 
     return ReturnResult(true, 200, "Page secret code reset", CODE)
+}
+//#endregion
+
+//#region == put folder ==
+async function putFolderName(sessionID, folderID, folderName) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validateFolder(folderID)) {return ReturnResult(false, 404, "Folder does not exist", folderID)}
+    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    const PARENT_ID = DB.prepare(`SELECT folder_id, parent FROM folder WHERE folder_id = ?;`).get(folderID).parent
+    if (!validateFolderName(folderName, PARENT_ID)) {return ReturnResult(false, 400, "Folder name already exists in parent folder", folderName)}
+
+    DB.prepare(`UPDATE folder SET name = ? WHERE folder_id = ?;`).run(folderName, folderID)
+    return ReturnResult(true, 200, "Folder name changed", newTitle)
+}
+
+async function putFolderOpen(sessionID, folderID, isOpen) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validateFolder(folderID)) {return ReturnResult(false, 404, "Folder does not exist", folderID)}
+    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+
+    DB.prepare(`UPDATE folder SET is_open = ? WHERE folder_id = ?;`).run(isOpen ? 1 : 0, folderID)
+    return ReturnResult(true, 200, "Folder openness changed", isOpen.toString())
+}
+
+async function putFolderParent(sessionID, folderID, parentFolderID) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session", sessionID)}
+    if (!validateFolder(folderID)) {return ReturnResult(false, 404, "Folder does not exist", folderID)}
+    if (!validateFolder(parentFolderID)) {return ReturnResult(false, 404, "Parent folder does not exist", parentFolderID)}
+    if (!validateFolderEditAuthorization(folderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validateFolderEditAuthorization(parentFolderID, USER_ID, true)) {return ReturnResult(false, 403, "Unauthorized user", USER_ID)}
+    if (!validateFolderName(folderName, parentFolderID)) {return ReturnResult(false, 400, "Folder name already exists in parent folder", folderName)}
+
+    DB.prepare(`UPDATE folder SET parent = ? WHERE folder_id = ?;`).run(parentFolderID, folderID)
+    return ReturnResult(true, 200, "Folder parent changed", parentFolderID)
 }
 //#endregion
 
@@ -399,8 +442,15 @@ function getFolderIDByName(folderName) { // undefined if folder does NOT exist, 
 }
 
 function validateFolderName(folderName, parentID) { // false if folder name does NOT exist with same parent
-    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM folder WHERE name = ? AND parent = ?);`).get(folderID)
-    return result[`EXISTS(SELECT 1 FROM folder WHERE folder_id = ?)`] === 1;
+    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM folder WHERE name = ? AND parent = ?);`).get(folderID, parentID)
+    return result[`EXISTS(SELECT 1 FROM folder WHERE name = ? AND parent = ?)`] === 1;
+}
+
+function validateFolderEditAuthorization(folderID, userID, isCritical) { // false if user is NOT creator of folder OR admin AND parent folder is not open (if noncritical edit)
+    if (DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`).get(userID).is_admin === 1) {return true}
+    let result = DB.prepare(`SELECT folder_id, user_id, parent FROM folder WHERE folder_id = ?;`).get(folderID)
+    if (!isCritical && DB.prepare(`SELECT folder_id, is_open FROM folder WHERE folder_id = ?;`).get(result.parent).is_open) {return true}
+    return userID === result.user_id
 }
 
 function validateFolder(folderID) { // false if folder does NOT exist
@@ -487,6 +537,7 @@ const SETUP_TABLES = [
             session_expiration TEXT NOT NULL,
             join_date TEXT NOT NULL,
             is_admin INTEGER NOT NULL DEFAULT 0,
+            is_trusted INTEGER NOT NULL DEFAULT 0,
             is_suspended INTEGER NOT NULL DEFAULT 0
         );
     `),
@@ -503,7 +554,10 @@ const SETUP_TABLES = [
             folder_id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             parent INTEGER,
-            FOREIGN KEY (parent) REFERENCES folder (folder_id)
+            user_id TEXT,
+            is_open INTEGER NOT NULL DEFAULT 1,
+            FOREIGN KEY (parent) REFERENCES folder (folder_id),
+            FOREIGN KEY (user_id) REFERENCES user (user_id)
         );
     `),
     DB.prepare(`
