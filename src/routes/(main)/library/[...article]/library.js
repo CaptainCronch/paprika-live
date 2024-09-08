@@ -230,7 +230,7 @@ async function getPageByTitle(sessionID, title) {
     return await getPageByID(sessionID, PAGE_ID)
 }
 
-async function getManyPagesbyID(sessionID, array) {
+async function getManyPagesByID(sessionID, array) {
     const USER_ID = await validateSession(sessionID)
     
     let pageIDs = []
@@ -248,12 +248,12 @@ async function getManyPagesbyID(sessionID, array) {
 async function getManyPagesByTitlePattern(sessionID, pattern) {
     const RESULTS = DB.prepare(`SELECT page_id, title FROM page WHERE title LIKE %?%;`).all(pattern)
     if (RESULTS.length < 1) {return ReturnResult(false, 404, "No pages matching title pattern found", pattern)}
-    return await getManyPagesbyID(sessionID, RESULTS)
+    return await getManyPagesByID(sessionID, RESULTS)
 }
 
 async function getManyPagesByAuthorID(sessionID, targetID) {
     if (!validateUser(targetID)) {return ReturnResult(false, 404, "User not found")}
-    return await getManyPagesbyID(sessionID, DB.prepare(`SELECT page_id, user_id FROM page WHERE user_id = ?;`).all(targetID))
+    return await getManyPagesByID(sessionID, DB.prepare(`SELECT page_id, user_id FROM page WHERE user_id = ?;`).all(targetID))
 }
 
 async function getManyPagesByAuthorName(sessionID, targetName) {
@@ -268,17 +268,17 @@ async function getManyPagesByTime(sessionID, time, before) {
     if (before) {results = DB.prepare(`SELECT page_id, date FROM page WHERE date <= ?`).all(time)}
     else {results = DB.prepare(`SELECT page_id, date FROM page WHERE date >= ?`).all(time)}
 
-    return await getManyPagesbyID(sessionID, results)
+    return await getManyPagesByID(sessionID, results)
 }
 
 async function getManyPagesByFolderID(sessionID, folderID) {
     if (!validateFolder(folderID)) {return ReturnResult(false, 404, "Folder not found", folderID)}
-    return await getManyPagesbyID(sessionID, DB.prepare(`SELECT page_id, folder_id FROM page WHERE folder_id = ?`).all(folderID))
+    return await getManyPagesByID(sessionID, DB.prepare(`SELECT page_id, folder_id FROM page WHERE folder_id = ?`).all(folderID))
 }
 
 async function getManyPagesByTagID(sessionID, tagID) {
     if (!validateTag(tagID)) {return ReturnResult(false, 404, "Tag not found", tagID)}
-    return await getManyPagesbyID(sessionID, DB.prepare(`SELECT page_id, tag_id FROM page_tag WHERE tag_id = ?`).all(tagID))
+    return await getManyPagesByID(sessionID, DB.prepare(`SELECT page_id, tag_id FROM page_tag WHERE tag_id = ?`).all(tagID))
 }
 
 async function getManyPagesByTagName(sessionID, tagName) {
@@ -319,7 +319,7 @@ async function getLatestRevisionByPageID(sessionID, pageID) {
     return await getRevisionByID(sessionID, LAST_REVISION_ID)
 }
 
-async function getManyRevisionsbyPageID(sessionID, pageID) {
+async function getManyRevisionsByPageID(sessionID, pageID) {
     const USER_ID = await validateSession(sessionID)
     const REVISIONS = DB.prepare(`SELECT revision_id, page_id FROM revision WHERE page_id = ?;`).all(pageID)
 
@@ -382,6 +382,60 @@ async function getAllTags() {
     TAGS.forEach(element => {output.push({'tagID': element.tag_id, 'name': element.name})})
 
     return ReturnResult(true, 200, "Tags retrieved", output)
+}
+//#endregion
+
+//#region == get folder ==
+async function getFolderByID(folderID) { // folder_id, name, parent, user_id, is_open
+    if (!validateFolder(tagID)) {return ReturnResult(false, 404, "Folder not found", folderID)}
+    const FOLDER = DB.prepare(`SELECT * FROM folder WHERE folder_id = ?;`).get(folderID)
+
+    const OUTPUT = {
+        'folderID': FOLDER.folder_id,
+        name: FOLDER.name,
+        parentID: FOLDER.parent,
+        userID: FOLDER.user_id,
+        isOpen: FOLDER.is_open == 1,
+    }
+    return ReturnResult(true, 200, "Folder retrieved", OUTPUT)
+}
+
+async function getManyFoldersByNamePattern(pattern) {
+    const FOLDERS = DB.prepare(`SELECT * FROM folder WHERE name LIKE %?%;`).all(pattern)
+    if (FOLDERS.length < 1) {return ReturnResult(false, 404, "No folders found matching pattern")}
+
+    let output = []
+    FOLDERS.forEach(element => {
+        const OBJECT = {
+            'folderID': element.folder_id,
+            name: element.name,
+            parentID: element.parent,
+            userID: element.user_id,
+            isOpen: element.is_open == 1,
+        }
+        output.push(OBJECT)
+    })
+
+    return ReturnResult(true, 200, "Folders retrieved", output)
+}
+
+async function getManyFoldersByParentID(parentID) {
+    const FOLDERS = DB.prepare(`SELECT * FROM folder WHERE parent = ?;`).all(parentID)
+    if (FOLDERS.length < 1) {return ReturnResult(false, 404, "No subfolders found")}
+
+    let output = []
+    FOLDERS.forEach(element => {
+        const OBJECT = {
+            'folderID': element.folder_id,
+            name: element.name,
+            parentID: element.parent,
+            userID: element.user_id,
+            isOpen: element.is_open == 1,
+        }
+        output.push(OBJECT)
+    })
+
+    return ReturnResult(true, 200, "Folders retrieved", output)
 }
 //#endregion
 //#endregion
