@@ -450,7 +450,7 @@ async function getUserByID(sessionID, targetID, validatedUserID = null) {
     else if (validatedUserID !== null && validatedUserID !== false) {userID = validatedUserID}
     const TARGET = DB.prepare(`SELECT * FROM user WHERE user_id = ?;`).get(targetID)
 
-    let output = {
+    const OUTPUT = {
         'userID': TARGET.user_id,
         name: TARGET.name,
         joinDate: TARGET.join_date,
@@ -462,7 +462,7 @@ async function getUserByID(sessionID, targetID, validatedUserID = null) {
     if (TARGET.is_deleted == 1 && !(userID === targetID || validateUserAdmin(userID))) {
         return ReturnResult(false, 404, "User not found", targetID)
     }
-    return ReturnResult(true, 200, "Folder retrieved", output)
+    return ReturnResult(true, 200, "User retrieved", OUTPUT)
 }
 
 async function getUserByName(sessionID, targetName) {
@@ -487,6 +487,74 @@ async function getManyUsersByNamePattern(sessionID, pattern) {
     }
 
     return ReturnResult(true, 200, "Users retrieved", outputs)
+}
+//#endregion
+
+//#region == get comment ==
+async function getCommentByID(sessionID, commentID, validatedUserID = null) { // comment_id, text, date, parent, page_id, user_id, is_deleted
+    let userID = null
+    if (sessionID !== null && validatedUserID === null) {
+        const VERIFICATION_RESULT = await validateSession(sessionID)
+        if (!VERIFICATION_RESULT) {return ReturnResult(false, 401, "Invalid session ID")}
+        userID = VERIFICATION_RESULT
+    }
+    else if (validatedUserID !== null && validatedUserID !== false) {userID = validatedUserID}
+    
+    if (!validateComment(commentID)) {return ReturnResult(false, 404, 'Comment not found', commentID)}
+    const COMMENT = DB.prepare(`SELECT * FROM comment WHERE comment_id = ?;`).get(commentID)
+
+    const OUTPUT = {
+        commentID: COMMENT.comment_id,
+        text: COMMENT.text,
+        date: COMMENT.date,
+        parentID: COMMENT.parent,
+        pageID: COMMENT.page_id,
+        userID: COMMENT.user_id,
+        isDeleted: COMMENT.is_deleted == 1,
+    }
+
+    if (OUTPUT.isDeleted && !(userID === OUTPUT.userID || validateUserAdmin(userID))) {
+        return ReturnResult(false, 404, "User not found", targetID)
+    }
+    return ReturnResult(true, 200, "Comment retrieved", OUTPUT)
+}
+
+async function getManyCommentsByPageID(sessionID, pageID) {
+    if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page not found", pageID)}
+    const RESULTS = DB.prepare(`SELECT comment_id, page_id FROM comment WHERE page_id = ?;`).all(pageID)
+    if (RESULTS.length < 1) {return ReturnResult(false, 404, "This page has no comments", pageID)}
+
+    const USER_ID = await validateSession(sessionID)
+    
+    let commentIDs = []
+    RESULTS.forEach(element => {commentIDs.push(element.comment_id)})
+
+    let outputs = []
+    for (let i = 0; i < commentIDs.length; i++) {
+        const COMMENT_QUERY = await getCommentByID(sessionID, commentIDs[i], USER_ID)
+        if (COMMENT_QUERY.okay) {outputs.push(COMMENT_QUERY.value)}
+    }
+
+    return ReturnResult(true, 200, "Comments retrieved", outputs)
+}
+
+async function getManyCommentsByUserID(sessionID, userID) {
+    if (!validateUser(userID)) {return ReturnResult(false, 404, "User not found", userID)}
+    const RESULTS = DB.prepare(`SELECT comment_id, user_id FROM comment WHERE user_id = ?;`).all(userID)
+    if (RESULTS.length < 1) {return ReturnResult(false, 404, "This user has no comments", userID)}
+
+    const USER_ID = await validateSession(sessionID)
+    
+    let commentIDs = []
+    RESULTS.forEach(element => {commentIDs.push(element.comment_id)})
+
+    let outputs = []
+    for (let i = 0; i < commentIDs.length; i++) {
+        const COMMENT_QUERY = await getCommentByID(sessionID, commentIDs[i], USER_ID)
+        if (COMMENT_QUERY.okay) {outputs.push(COMMENT_QUERY.value)}
+    }
+
+    return ReturnResult(true, 200, "Comments retrieved", outputs)
 }
 //#endregion
 //#endregion
