@@ -32,7 +32,7 @@ tag: used to categorize pages and get collections of them.
     tag_id, name
 
 user: marks comment authors, revision writers, media uploaders, and who is allowed to edit a page. (admins can perform various authoritative actions.)
-    user_id (uuidv4), name, password, session_id, session_expiration, join_date, is_admin, is_trusted, is_deleted, is_owner
+    user_id (uuidv4), name, password, session_id, session_expiration, join_date, is_admin, is_deleted, is_owner
 
 media: marks uploader and filenames.
     media_id, filename, user_id
@@ -438,6 +438,57 @@ async function getManyFoldersByParentID(parentID) {
     return ReturnResult(true, 200, "Folders retrieved", output)
 }
 //#endregion
+
+//#region == get user ==
+async function getUserByID(sessionID, targetID, validatedUserID = null) {
+    let userID = null
+    if (sessionID !== null && validatedUserID === null) {
+        const VERIFICATION_RESULT = await validateSession(sessionID)
+        if (!VERIFICATION_RESULT) {return ReturnResult(false, 401, "Invalid session ID")}
+        userID = VERIFICATION_RESULT
+    }
+    else if (validatedUserID !== null && validatedUserID !== false) {userID = validatedUserID}
+    const TARGET = DB.prepare(`SELECT * FROM user WHERE user_id = ?;`).get(targetID)
+
+    let output = {
+        'userID': TARGET.user_id,
+        name: TARGET.name,
+        joinDate: TARGET.join_date,
+        isAdmin: TARGET.is_admin == 1,
+        isOwner: TARGET.is_owner == 1,
+        isDeleted: TARGET.is_deleted == 1,
+    }
+
+    if (TARGET.is_deleted == 1 && !(userID === targetID || validateUserAdmin(userID))) {
+        return ReturnResult(false, 404, "User not found", targetID)
+    }
+    return ReturnResult(true, 200, "Folder retrieved", output)
+}
+
+async function getUserByName(sessionID, targetName) {
+    const USER_ID = getUserIDFromName(targetName)
+    if (USER_ID === undefined) {return ReturnResult(false, 404, 'No user with provided name found', targetName)}
+    return await getUserByID(sessionID, USER_ID)
+}
+
+async function getManyUsersByNamePattern(sessionID, pattern) {
+    const RESULTS = DB.prepare(`SELECT user_id, name FROM user WHERE name LIKE %?%;`).all(pattern)
+    if (RESULTS.length < 1) {return ReturnResult(false, 404, "No users matching title pattern found", pattern)}
+
+    const USER_ID = await validateSession(sessionID)
+    
+    let userIDs = []
+    RESULTS.forEach(element => {userIDs.push(element.user_id)})
+
+    let outputs = []
+    for (let i = 0; i < userIDs.length; i++) {
+        const USER_QUERY = await getUserByID(sessionID, userIDs[i], USER_ID)
+        if (USER_QUERY.okay) {outputs.push(USER_QUERY.value)}
+    }
+
+    return ReturnResult(true, 200, "Users retrieved", outputs)
+}
+//#endregion
 //#endregion
 
 //#region PUT FUNCTIONS
@@ -611,14 +662,14 @@ async function putUserPassword(sessionID, password) {
     }
 }
 
-async function putUserTrusted(sessionID, targetID, isTrusted) {
-    const USER_ID = await validateSession(sessionID)
-    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session ID", sessionID)}
-    if (!validateUserAdmin(USER_ID)) {return ReturnResult(false, 403, "Unauthorized to edit this user", USER_ID)}
-    if (!validateUser(targetID)) {return ReturnResult(false, 404, "Invalid target", targetID)}
+// async function putUserTrusted(sessionID, targetID, isTrusted) {
+//     const USER_ID = await validateSession(sessionID)
+//     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session ID", sessionID)}
+//     if (!validateUserAdmin(USER_ID)) {return ReturnResult(false, 403, "Unauthorized to edit this user", USER_ID)}
+//     if (!validateUser(targetID)) {return ReturnResult(false, 404, "Invalid target", targetID)}
 
-    DB.prepare(`UPDATE user SET is_trusted = ? WHERE user_id = ?;`).run(isTrusted ? 1 : 0, targetID)
-}
+//     DB.prepare(`UPDATE user SET is_trusted = ? WHERE user_id = ?;`).run(isTrusted ? 1 : 0, targetID)
+// }
 
 async function putUserAdmin(sessionID, targetID, isAdmin) {
     const USER_ID = await validateSession(sessionID)
@@ -934,7 +985,6 @@ const SETUP_TABLES = [
             session_expiration TEXT NOT NULL,
             join_date TEXT NOT NULL,
             is_admin INTEGER NOT NULL DEFAULT 0,
-            is_trusted INTEGER NOT NULL DEFAULT 0,
             is_deleted INTEGER NOT NULL DEFAULT 0,
             is_owner INTEGER NOT NULL DEFAULT 0
         );
