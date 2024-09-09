@@ -1,11 +1,11 @@
 <script>
 	import Navigation from '../../Navigation.svelte';
 	import Library from './Library.svelte'
-	// export let data;
+	export let data;
 </script>
 
 <svelte:head>
-	<title>paprika.live</title>
+	<title>{data.slug}</title>
 	<meta name="description" content="Home page" />
 </svelte:head>
 

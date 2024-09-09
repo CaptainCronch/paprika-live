@@ -103,7 +103,7 @@ export async function postPage(sessionID, pageTitle, allowedEditors, allowedView
         DB.prepare(`INSERT INTO page_tag (page_id, tag_id) VALUES(?, ?);`).run(pageID, tagID)
     })
 
-    let revisionResult = await postRevision(sessionID, pageID, content, mediaIDs)
+    let revisionResult = await postRevision(sessionID, pageID, content)
     if (!revisionResult.okay) {return revisionResult}
     else {return ReturnResult(true, 201, "Page created", pageID)}
 }
@@ -131,34 +131,34 @@ export async function postTag(sessionID, tagName) {
     return ReturnResult(true, 201, "Tag created", tagID)
 }
 
-export async function postFolder(sessionID, folderName, parentFolder) {
+export async function postFolder(sessionID, folderName, parentFolder, isOpen) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session ID", sessionID)}
     if (parentFolder !== null && !validateFolder(parentFolder)) {return ReturnResult(false, 404, "Parent folder does not exist", parentFolder)}
     if (parentFolder !== null && !validateFolderEditAuthorization(parentFolder, USER_ID, false)) {return ReturnResult(false, 403, "Unauthorized to add subfolder to this folder", USER_ID)}
     if (validateFolderName(folderName, parentFolder) !== undefined) {return ReturnResult(false, 400, "Folder already exists", folderName)}
-    let folderID = DB.prepare(`INSERT INTO tag (name) VALUES(?, ?);`).run(folderName, parentFolder).lastInsertRowid
+    let folderID = DB.prepare(`INSERT INTO folder (name, parent, user_id, is_open) VALUES(?, ?, ?, ?);`).run(folderName, parentFolder, USER_ID, isOpen).lastInsertRowid
 
     return ReturnResult(true, 201, "Folder created", folderID)
 }
 
-export async function postComment(sessionID, content, parentCommentID = null, pageID, authorID) {
-    if (!await validateSession(sessionID)) {return ReturnResult(false, 401, "Invalid session ID", sessionID)}
+export async function postComment(sessionID, content, parentCommentID = null, pageID) {
+    const USER_ID = await validateSession(sessionID)
+    if (!USER_ID) {return ReturnResult(false, 401, "Invalid session ID", sessionID)}
     if (parentCommentID !== null && !validateComment(parentCommentID)) {return ReturnResult(false, 404, "Parent comment does not exist", parentCommentID)}
     if (!validatePage(pageID)) {return ReturnResult(false, 404, "Page does not exist", pageID)}
-    if (!validateUser(authorID)) {return ReturnResult(false, 404, "User does not exist", authorID)}
-    if (!validateWholeComment(content, parentCommentID, pageID, authorID)) {return ReturnResult(false, 400, "Comment already exists", "Same words, same parent comment, same page, same author.")}
+    if (!validateWholeComment(content, parentCommentID, pageID, USER_ID)) {return ReturnResult(false, 400, "Comment already exists", "Same words, same parent comment, same page, same author.")}
 
     let commentID = DB.prepare(`INSERT INTO comment (text, date, parent, page_id, user_id, is_deleted) VALUES(?, ?, ?, ?, ?, 0);`)
-            .run(content, time(), parentCommentID, pageID, authorID).lastInsertRowid
+            .run(content, time(), parentCommentID, pageID, USER_ID).lastInsertRowid
 
     return ReturnResult(true, 201, "Comment created", commentID)
 }
 
 export async function postUser(name, password) {
-    if (getUserIDFromName(name) !== undefined) {return ReturnResult(false, 400, "Name taken", name)}
     if (name.length > USERNAME_MAX_LENGTH) {return ReturnResult(false, 400, "Username too long", name.length)}
     if (name.match(USERNAME_REGEX === null)) {return ReturnResult(false, 400, "Invalid username character(s)", "Valid characters are alphanumeric and -_")}
+    if (getUserIDFromName(name) !== undefined) {return ReturnResult(false, 400, "Name taken", name)}
     if (password.length < PASSWORD_MIN_LENGTH) {return ReturnResult(false, 400, "Password not long enough", password.length)}
     if (password.match(PASSWORD_REGEX) === null) {return ReturnResult(false, 400, "Invalid password character(s)", `Valid characters are alphanumeric and ~\`!@#$%^&*()_\-+={[}\]|\\:;"'<,>.?/`)}
 
@@ -230,7 +230,7 @@ export async function getPageByTitle(sessionID, title) {
     return await getPageByID(sessionID, PAGE_ID)
 }
 
-export async function getManyPagesByID(sessionID, array) {
+export async function getManyPagesByID(sessionID, array) { // internal helper! not for outside use
     const USER_ID = await validateSession(sessionID)
     
     let pageIDs = []
@@ -286,6 +286,17 @@ export async function getManyPagesByTagName(sessionID, tagName) {
     if (TAG_ID === undefined) {return ReturnResult(false, 404, "Tag with provided name not found", tagName)}
 
     return await getManyPagesByTagID(sessionID, TAG_ID)
+}
+
+export async function getWholePageByID(sessionID, pageID) {
+    const PAGE = await getPageByID(sessionID, pageID)
+    if (!PAGE.okay) {return PAGE}
+    const REVISION = await getLatestRevisionByPageID(sessionID, pageID)
+    if (!REVISION.okay) {return REVISION}
+    const TEXT = await getTextByID(sessionID, REVISION.textID)
+    if (!TEXT.okay) {return TEXT}
+
+    return {...PAGE, ...REVISION, ...TEXT}
 }
 //#endregion
 
@@ -347,6 +358,15 @@ export async function getTextByID(sessionID, revisionID) {
     if (!validatePageViewAuthorization(REVISION.page_id, userID)) {return ReturnResult(false, 403, "Unauthorized to view this page")}
 
     return ReturnResult(true, 200, "Retrieved text", DB.prepare(`SELECT text_id, text FROM text WHERE text_id = ?;`).get(REVISION.text_id))
+}
+
+export async function getWholeRevisionByID(sessionID, revisionID) {
+    const REVISION = await getLatestRevisionByPageID(sessionID, pageID)
+    if (!REVISION.okay) {return REVISION}
+    const TEXT = await getTextByID(sessionID, REVISION.textID)
+    if (!TEXT.okay) {return TEXT}
+
+    return {...REVISION, ...TEXT}
 }
 //#endregion
 
@@ -852,11 +872,11 @@ export async function deleteUser(sessionID, targetID, deleted) {
     return ReturnResult(true, 200, "User deleted", targetID)
 }
 
-export async function deleteUserHard(sessionID, targetID, secret_password) { // PERMANENT!!!!!! will fuck up every instance of this user's ID
+export async function deleteUserHard(sessionID, targetID, secretPassword) { // PERMANENT!!!!!! will fuck up every instance of this user's ID
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return ReturnResult(false, 401, "Invalid session ID", sessionID)}
     if (!validateUserOwner(USER_ID)) {return ReturnResult(false, 403, "Unauthorized to delete this user", USER_ID)}
-    if (secret_password !== SECRET_PASSWORD) {return ReturnResult(false, 403, "Unauthorized to delete this user", USER_ID)}
+    if (secretPassword !== SECRET_PASSWORD) {return ReturnResult(false, 403, "Unauthorized to delete this user", USER_ID)}
 
     DB.prepare(`DELETE FROM user WHERE user_id = ?;`).run(targetID)
     DB.prepare(`UPDATE page SET user_id = null WHERE user_id = ?`).run(targetID)
