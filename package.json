@@ -33,6 +33,7 @@
 		"better-sqlite3": "^11.1.2",
 		"dompurify": "^3.1.6",
 		"emmet": "^2.4.7",
+		"http-date": "^1.0.3",
 		"node-cron": "^3.0.3",
 		"ntp-time": "^2.0.6",
 		"svelte-body": "^1.4.0"
