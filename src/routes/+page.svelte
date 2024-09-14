@@ -25,7 +25,7 @@ import Main from "./Main.svelte";
 </marquee>
 {/each}
 
-<h1>Did you mean to visit <a href="/library">paprika.live/library</a>?</h1>
+<h1>Did you mean to visit <a href="/">paprika.live/library</a>?</h1>
 </Main>
 
 <style>
