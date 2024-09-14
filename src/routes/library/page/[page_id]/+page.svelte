@@ -1,6 +1,6 @@
 <script>
-	import Navigation from '../../Navigation.svelte';
-	import Library from './Library.svelte'
+	import Navigation from '../../../Navigation.svelte';
+	import Library from '../../Library.svelte'
 	export let data;
 </script>
 

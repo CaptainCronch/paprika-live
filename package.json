@@ -31,6 +31,7 @@
 		"@fontsource/noto-color-emoji": "^5.0.27",
 		"argon2": "^0.41.1",
 		"better-sqlite3": "^11.1.2",
+		"devalue": "^5.0.0",
 		"dompurify": "^3.1.6",
 		"emmet": "^2.4.7",
 		"http-date": "^1.0.3",
