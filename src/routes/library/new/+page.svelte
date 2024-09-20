@@ -1,6 +1,7 @@
 <script>
 	import ArticleFrame from "./ArticleFrame.svelte";
 	import InfoFrame from "./InfoFrame.svelte";
+	import PageInfo from "./PageInfo.svelte";
 	export let data;
 </script>
 
@@ -15,6 +16,8 @@
 </ArticleFrame>
 
 <InfoFrame edit/>
+
+<PageInfo/>
 
 <style>
 	h1 {

@@ -15,6 +15,7 @@
 	--moss-green: #898c53ff;
 	--coyote: #7a5f4aff;
 	--black: #272320ff;
+	--gray: rgb(97, 95, 91);
 	--column-width: 42rem;
 	--column-margin-top: 4rem;
 	font-family: var(--font-body);
