@@ -498,7 +498,7 @@ export async function getUserByName(sessionID, targetName) {
 }
 
 export async function getManyUsersByNamePattern(sessionID, pattern) {
-    const RESULTS = DB.prepare(`SELECT user_id, name FROM user WHERE name LIKE %?%;`).all(pattern)
+    const RESULTS = DB.prepare(`SELECT user_id, name FROM user WHERE name LIKE '%' || ? || '%';`).all(pattern)
     if (RESULTS.length < 1) {return new ReturnResult(false, 404, "No users matching title pattern found", pattern)}
 
     const USER_ID = await validateSession(sessionID)

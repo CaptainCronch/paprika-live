@@ -1,5 +1,6 @@
 <script>
     import { onMount } from "svelte";
+	import SearchBox from "./SearchBox.svelte";
 
 	export let symbol = "#"
 	export let defaultName = "new tag"
@@ -70,6 +71,7 @@
     }
 </script>
 
+<SearchBox/>
 <p id="info-tags" bind:this={infoTags}>
     {#each tags as tag, index}
         <span class="tag-container">
