@@ -4,7 +4,7 @@
     export let author = {id: 0, name: "you"}
     export let title = "New Page"
     export let time = {creation: new Date().toISOString(), edited: new Date().toISOString()}
-    export let tags = [{id: 0, name: "new"}]
+    export let tags = [{id: 0, name: "new tag"}]
 	export let edit = false
 
 	function handleTitleInput(event) {

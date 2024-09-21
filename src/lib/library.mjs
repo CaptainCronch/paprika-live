@@ -1033,12 +1033,12 @@ export function validateTag(tagID) { // false if tag does NOT exist
 }
 
 export function getUserIDFromName(userName) { // undefined if user does NOT exist, returns user primary key
-    let result = DB.prepare(`SELECT user_id, name FROM user WHERE name = ?;`).get(userName)
+    let result = DB.prepare(`SELECT user_id, name FROM user WHERE name = ? COLLATE NOCASE;`).get(userName)
     return result.user_id
 }
 
 export function validateUser(userID) { // false if user does NOT exist
-    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM user WHERE user_id = ?);`).get(userID)
+    let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM user WHERE user_id = ? COLLATE NOCASE);`).get(userID)
     return result[`EXISTS(SELECT 1 FROM user WHERE user_id = ?)`] === 1;
 }
 
