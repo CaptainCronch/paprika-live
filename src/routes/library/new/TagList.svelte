@@ -124,7 +124,6 @@
 		border: none;
 		cursor: pointer;
 		font-weight: 700;
-		vertical-align: top;
 		color: var(--moss-green);
 		scale: 1.5;
 		transition: all 0.1s;
