@@ -4,18 +4,15 @@
 
     export let symbol = "@"
 
-    let results = [{name: "a"}]
+    let results = []
 
     let value
     function handleFocusOut() {
-        dispatch("closeBox", {})
+        dispatch("closebox", null)
     }
 
     async function handleKey(event) {
         if (event.key === "Enter") {
-            dispatch("closeBox",{
-                name: value,
-            })
             event.preventDefault()
         } else {
             let response = await fetch("/library/api/user?search=" + event.target.value)
@@ -27,10 +24,9 @@
         }
     }
 
-    function handleClick() {
-        dispatch("closeBox",{
-            name: value,
-        })
+    /** @param {Event} event */
+    function handleClick(event) {
+        dispatch("closebox", results[parseInt(event.target.id)])
     }
 </script>
 
@@ -38,23 +34,26 @@
 
     <div class="search-container">
         {#each results as result, i}
-            <button class="result" id={"#" + i} on:click={handleClick}>{symbol + result.name}</button>
+            <button class="result" id={i} on:click={handleClick}>{symbol + result.name}</button>
         {/each}
-        <label for="search">{symbol}</label><input type="text" name="search" id="search" on:focusout={handleFocusOut} on:keyup={handleKey} bind:value placeholder="name">
+        <label for="search">{symbol}</label><input type="text" name="search" id="search" on:focusout={handleFocusOut} on:keyup={handleKey} bind:value placeholder="username">
     </div>
 </div>
 
 <style>
     .result {
-        display: block;
+        display: inline-block;
         background: none;
         border: none;
         padding: 0;
         margin: 0;
+        width: 100%;
+        text-align: start;
         margin-bottom: 10px;
         border-radius: 5px;
         transition: all 0.2s;
         cursor: pointer;
+        overflow-wrap: break-word;
     }
 
     .result:hover {

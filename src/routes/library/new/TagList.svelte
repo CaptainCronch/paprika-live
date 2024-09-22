@@ -2,10 +2,18 @@
     import { onMount } from "svelte";
 	import SearchBox from "./SearchBox.svelte";
 
-	export let symbol = "#"
-	export let defaultName = "new tag"
-    export let tags = [{id: 0, name: defaultName}]
-	export let edit = false
+	const TYPE = Object.freeze({
+		TAG: 0,
+		USER: 1,
+	})
+
+	export let type = TYPE.TAG
+    export let tags = []
+	export let editing = false
+
+	let searching = false
+	let symbol = type == TYPE.TAG ? "#" : "@"
+	let defaultName = type == TYPE.TAG ? "new tag" : "new user"
 
     /** @type Element */
 	let infoTags
@@ -19,6 +27,19 @@
 
 	let tagElements
 	function handleAddTag(event) {
+		if (type == TYPE.USER) {
+			searching = true
+		} else {
+			addTag(null)
+		}
+	}
+
+	function handleCloseBox(event) {
+		if (event.detail != null) {addTag(event.detail)}
+		searching = false
+	}
+
+	function addTag(object) {
 		if (infoTags.getElementsByClassName("editing").length > 0) {return} // do nothing if tag already being edited
 
 		if (tagList.length > 0) { // only add comma if there is a previous element
@@ -34,13 +55,20 @@
 		addButton.insertAdjacentElement("beforebegin", tagContainer)
 
 		let tag = document.createElement("a")
-		tag.className = "tag editing" // .editing to show the editable tag
+		if (object == null) {
+			tag.className = "tag editing" // .editing to show the editable tag
+			tag.contentEditable = true
+			tag.textContent = object == null ? symbol + defaultName : symbol + object.name
+			tag.addEventListener("keydown", handleTagEnter)
+			tag.addEventListener("focusout", handleTagAccept)
+		} else {
+			tag.className = "tag"
+			tag.contentEditable = false
+			tag.textContent = symbol + object.name
+			tag.addEventListener("click", handleDeleteTag)
+		}
 		tag.href = "#"
-		tag.contentEditable = true
-		tag.textContent = symbol + defaultName
-		tag.addEventListener("keydown", handleTagEnter)
-        tag.addEventListener("focusout", handleTagAccept)
-
+		
 		tagContainer.appendChild(tag)
 	}
     
@@ -54,8 +82,10 @@
 
 	function handleDeleteTag(event) { // deletes tag on click, and deletes previous comma
 		event.target.parentElement.remove()
-		let comma = tagList.item(tagList.length - 1).getElementsByTagName("span")
-		if (comma.length > 0) {comma.item(0).remove()}
+		if (tagList.length > 0) {
+			let comma = tagList.item(tagList.length - 1).getElementsByTagName("span")
+			if (comma.length > 0) {comma.item(0).remove()}
+		}
 		event.preventDefault()
 	}
 
@@ -71,14 +101,14 @@
     }
 </script>
 
-<SearchBox/>
+{#if searching}<SearchBox on:closebox={handleCloseBox}/>{/if}
 <p id="info-tags" bind:this={infoTags}>
     {#each tags as tag, index}
         <span class="tag-container">
-            <a class="tag" href={edit ? "#" : "/library/tag/" + tag.id} on:click={handleDeleteTag} on:focusout={handleTagAccept}>{symbol + tag.name}</a>{#if index !== tags.length - 1}<span class="comma">, </span>{/if}
+            <a class="tag" href={editing ? "#" : "/library/tag/" + tag.id} on:click={handleDeleteTag} on:focusout={handleTagAccept}>{symbol + tag.name}</a>{#if index !== tags.length - 1}<span class="comma">, </span>{/if}
         </span>
     {/each}
-    {#if edit}<button class="add" on:click={handleAddTag} bind:this={addButton}>+</button>{/if}
+    {#if editing}<button class="add" on:click={handleAddTag} bind:this={addButton}>+</button>{/if}
 </p>
 
 <style>
@@ -89,6 +119,7 @@
 		color: var(--black);
 		outline-width: 0px;
 		transition: all 0.1s;
+		overflow-wrap: break-word;
 	}
 
 	:global(.tag:last-child) {
@@ -129,11 +160,9 @@
 		color: var(--moss-green);
 		scale: 1.5;
 		transition: all 0.1s;
-		padding-left: 0;
 	}
 
 	.add:hover {
-		padding-left: 5px;
 		scale: 2;
 	}
 

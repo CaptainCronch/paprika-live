@@ -15,7 +15,7 @@
     <p>Here you can find all kinds of articles, from blog posts to personal articles, and from notes to wiki pages.</p>
 </ArticleFrame>
 
-<InfoFrame edit/>
+<InfoFrame editing/>
 
 <PageInfo/>
 
