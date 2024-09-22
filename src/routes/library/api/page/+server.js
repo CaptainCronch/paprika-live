@@ -29,7 +29,7 @@ export async function GET({ cookies, url }) {
       default:
         return new Response("Accepted parameters: id, title, search, user_id, username, before (date), after (date), folder, tag_id, tag_name", {status: 400})
     }
-    return new Response(JSON.stringify(result.value), {status: result.code, statusText: result.reason})
+    return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
 }
 
 export async function POST({ request, cookies }) {
@@ -47,8 +47,8 @@ export async function POST({ request, cookies }) {
       return new Response("Please provide title, editors, viewers, folder (nullable), tags, is_open, is_private, and text in request body", {status: 400})
   }
 
-  const RESULT = await Library.postPage(SESSION, String(BODY.title), JSON.parse(BODY.editors), JSON.parse(BODY.viewers), parseInt(BODY.folder), JSON.parse(BODY.tags), BODY.is_open == true, BODY.is_private == true, String(BODY.text))
-  return new Response(JSON.stringify(RESULT.value), {status: RESULT.code, statusText: RESULT.reason})
+  const RESULT = await Library.postPage(SESSION, String(BODY.title), BODY.editors, BODY.viewers, parseInt(BODY.folder), BODY.tags, BODY.is_open == true, BODY.is_private == true, String(BODY.text))
+  return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
 }
 
 export async function PUT({ request, cookies }) {
@@ -63,11 +63,11 @@ export async function PUT({ request, cookies }) {
   if (BODY.title != null) {
       result = await Library.putPageTitle(SESSION, BODY.id, BODY.title)
   } else if (BODY.editors != null || BODY.editors.size > 0) {
-      result = await Library.putPageEditors(SESSION, BODY.id, JSON.parse(BODY.editors))
+      result = await Library.putPageEditors(SESSION, BODY.id, BODY.editors)
   } else if (BODY.viewers != null || BODY.viewers.size > 0) {
-      result = await Library.putPageViewers(SESSION, BODY.id, JSON.parse(BODY.viewers))
+      result = await Library.putPageViewers(SESSION, BODY.id, BODY.viewers)
   } else if (BODY.tags != null || BODY.tags.size > 0) {
-    result = await Library.putPageTags(SESSION, BODY.id, JSON.parse(BODY.tags))
+    result = await Library.putPageTags(SESSION, BODY.id, BODY.tags)
   } else if (BODY.folder !== undefined) {
     result = await Library.putPageFolder(SESSION, BODY.id, BODY.folder)
   } else if (BODY.is_open != null) {
@@ -79,7 +79,7 @@ export async function PUT({ request, cookies }) {
   } else {
       return new Response("Please provide title, editors, viewers, folder (nullable), tags, is_open, is_private, or reset_secret_code in request body (id required)", {status: 400})
   }
-  return new Response(JSON.stringify(result.value), {status: result.code, statusText: result.reason})
+  return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
 }
 
 export async function DELETE({ request, cookies }) {
@@ -91,5 +91,5 @@ export async function DELETE({ request, cookies }) {
   }
 
   const RESULT = await Library.deleteUser(SESSION, parseInt(BODY.id), BODY.set_deleted == true)
-  return new Response(JSON.stringify(RESULT.value), {status: RESULT.code, statusText: RESULT.reason})
+  return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
 }

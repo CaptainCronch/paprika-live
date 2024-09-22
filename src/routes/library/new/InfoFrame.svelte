@@ -1,12 +1,12 @@
 <script>
 	import TagList from "./TagList.svelte";
 
-    export let author = {id: 0, name: "you"}
+    export let author = {id: 0, name: "your username here"}
     export let title = "New Page"
     export let time = {creation: new Date().toISOString(), edited: new Date().toISOString()}
     export let tags = [{id: 0, name: "new tag"}]
 	export let editing = false
-	export let folders = [{name: "fold", id: 0}, {name: "fold", id: 0}]
+	// export let folders = [{name: "fold", id: 0}, {name: "fold", id: 0}]
 
 	function handleTitleInput(event) {
 		title = event.target.textContent
@@ -19,20 +19,20 @@
 		<p id="info-author"><a class="tag" href="{editing ? "/library/new" : "/library/user/" + author.id}">@{author.name}</a></p>
 		<h2 id="info-title" contenteditable={editing} on:input={handleTitleInput}>{title}</h2>
 		<p id="info-subtitle"><span id="info-time" title="last modified {time.edited}">{time.creation}</span></p>
-		<p style="margin-top: 15px;">
+		<!-- <p style="margin-top: 15px;">
 			{#each folders as folder, index}
 			{#if index !== 0}<span class="arrow">&gt;</span>{/if}<a class="folder" href={"/library/folder/" + folder.id}>{folder.name}</a>
 			{/each}
-		</p>
+		</p> -->
 		<p>HTML; text on canvas</p>
 		<br>
-		<TagList tags={editing ? [] : tags} {editing}/>
+		<TagList bind:tags {editing}/>
 	</aside>
 	<div class="bolt"></div>
 </div>
 
 <style>
-	.arrow {
+	/* .arrow {
 		margin: 0 5px;
 	}
 
@@ -44,7 +44,7 @@
 		outline-width: 0px;
 		transition: all 0.1s;
 		overflow-wrap: break-word;
-	}
+	} */
 
 	#info-author {
 		margin: 0;
@@ -82,11 +82,11 @@
 	}
 
 	.bolt {
-		width: 20px;
-		height: 20px;
-		background-image: radial-gradient(circle, rgb(58, 58, 58) 40%, rgb(197, 197, 197) 100%);
+		width: 25px;
+		height: 25px;
+		background-image: radial-gradient(circle, rgb(134, 134, 134) 40%, rgb(214, 214, 214) 100%);
 		background-position: -1px 1px;
-		background-size: 21px;
+		background-size: 26px;
 		border-radius: 100%;
 		margin: 1em;
 	}

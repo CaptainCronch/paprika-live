@@ -15,7 +15,7 @@ export async function GET({ cookies, url }) {
       default:
         return new Response("Accepted parameters: id, name, search", {status: 400})
     }
-    return new Response(JSON.stringify(result.value), {status: result.code, statusText: result.reason})
+    return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
 }
 
 export async function POST({ request }) {
@@ -26,7 +26,7 @@ export async function POST({ request }) {
     }
 
     const RESULT = await Library.postUser(String(BODY.name), String(BODY.password))
-    return new Response(JSON.stringify(RESULT.value), {status: RESULT.code, statusText: RESULT.reason})
+    return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
 }
 
 export async function PUT({ request, cookies }) {
@@ -43,7 +43,7 @@ export async function PUT({ request, cookies }) {
     } else {
         return new Response("Please provide name, password, or is_admin in request body", {status: 400})
     }
-    return new Response(JSON.stringify(result.value), {status: result.code, statusText: result.reason})
+    return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
 }
 
 export async function DELETE({ request, cookies }) {
@@ -60,5 +60,5 @@ export async function DELETE({ request, cookies }) {
     } else {
         result = await Library.deleteUser(SESSION, BODY.id, BODY.set_deleted)
     }
-    return new Response(JSON.stringify(result.value), {status: result.code, statusText: result.reason})
+    return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
 }

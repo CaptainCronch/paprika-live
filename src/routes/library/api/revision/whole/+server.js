@@ -6,7 +6,7 @@ export async function GET({ cookies, url }) {
     const PARAMETER = url.searchParams.entries().next().value
     if (PARAMETER[0] == 'id') {
         let result = await Library.getWholeRevisionByID(SESSION, PARAMETER[1]);
-        return new Response(JSON.stringify(result.value), {status: result.code, statusText: result.reason})
+        return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
     } else {
         return new Response("Accepted parameters: id", {status: 400})
     }

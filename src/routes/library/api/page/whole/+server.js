@@ -13,5 +13,5 @@ export async function GET({ cookies, url }) {
       default:
         return new Response("Accepted search parameters: id, title", {status: 400})
     }
-    return new Response(JSON.stringify(result.value), {status: result.code, statusText: result.reason})
+    return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
 }

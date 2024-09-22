@@ -3,6 +3,33 @@
 	import InfoFrame from "./InfoFrame.svelte";
 	import PageInfo from "./PageInfo.svelte";
 	export let data;
+
+	let title
+	let tags
+	let text
+	let submitted = false
+
+	async function handleSubmit(event) { // editors viewers folder is_open is_private
+		let response = await fetch("/library/api/page", {
+			body: JSON.stringify({
+				'title': title,
+				'tags': tags,
+				'text': text,
+				'editors': event.detail.editors,
+				'viewers': event.detail.readers,
+				'folder': event.detail.folder !== "" ? event.detail.folder : null,
+				'is_open': event.detail.open,
+				'is_private': event.detail.private,
+			}),
+			method: "POST",
+		})
+		if (response.ok) {
+			alert("Page successfully created!")
+		} else {
+			let body = await response.text()
+			alert(body)
+		}
+	}
 </script>
 
 <svelte:head>
@@ -10,14 +37,11 @@
 	<meta name="description" content="Create new page"/>
 </svelte:head>
 
-<ArticleFrame>
-    <h1>Welcome to the Library!</h1>
-    <p>Here you can find all kinds of articles, from blog posts to personal articles, and from notes to wiki pages.</p>
-</ArticleFrame>
+<ArticleFrame bind:text editing/>
 
-<InfoFrame editing/>
+<InfoFrame bind:title bind:tags editing/>
 
-<PageInfo/>
+<PageInfo on:submit={handleSubmit}/>
 
 <style>
 	h1 {

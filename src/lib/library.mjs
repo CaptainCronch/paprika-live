@@ -66,7 +66,7 @@ page_tag: denotes what tags are in each page.
 
 export async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderID, tags, content, isOpen, isPrivate) {
     const USER_ID = await validateSession(sessionID)
-    if (!USER_ID) {return new ReturnResult(false, 401, "Invalid session ID", sessionID)}
+    // if (!USER_ID) {return new ReturnResult(false, 401, "Invalid session ID", sessionID)}
     if (getPageIDFromTitle(pageTitle) === undefined) {return new ReturnResult(false, 400, "Name taken", pageTitle)}
     if (folderID != null && !validateFolderEditAuthorization(folderID, USER_ID, false)) {return new ReturnResult(false, 403, "Unauthorized to add page to this folder")}
 
@@ -956,7 +956,7 @@ export function validateUserOwner(userID) { // false if user is NOT owner
 
 export function getPageIDFromTitle(pageTitle) { // undefined if page does NOT exist, returns page primary key
     const ID_QUERY = DB.prepare(`SELECT page_id, title FROM page WHERE title = ?;`).get(pageTitle)
-    return ID_QUERY.page_id
+    return ID_QUERY === undefined ? undefined : ID_QUERY.page_id
 }
 
 export function validatePage(pageID) { // false if page does NOT exist
@@ -1000,7 +1000,7 @@ export function validatePageViewAuthorization(pageID, userID) { // false if page
 
 export function getFolderIDFromName(folderName) { // undefined if folder does NOT exist, returns folder primary key
     let result = DB.prepare(`SELECT folder_id, name FROM folder WHERE name = ?;`).get(folderName)
-    return result.folder_id
+    return result === undefined ? undefined : result.folder_id
 }
 
 export function validateFolderName(folderName, parentID) { // false if folder name does NOT exist with same parent
@@ -1024,7 +1024,7 @@ export function validateFolder(folderID) { // false if folder does NOT exist
 
 export function getTagIDFromName(tagName) { // undefined if tag does NOT exist, returns tag primary key
     let result = DB.prepare(`SELECT tag_id, name FROM tag WHERE name = ?;`).get(tagName)
-    return result.tag_id
+    return result === undefined ? undefined : result.tag_id
 }
 
 export function validateTag(tagID) { // false if tag does NOT exist
@@ -1034,7 +1034,7 @@ export function validateTag(tagID) { // false if tag does NOT exist
 
 export function getUserIDFromName(userName) { // undefined if user does NOT exist, returns user primary key
     let result = DB.prepare(`SELECT user_id, name FROM user WHERE name = ? COLLATE NOCASE;`).get(userName)
-    return result.user_id
+    return result === undefined ? undefined : result.user_id
 }
 
 export function validateUser(userID) { // false if user does NOT exist

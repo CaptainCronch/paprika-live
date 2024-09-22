@@ -13,7 +13,7 @@ export async function GET({ url }) {
       default:
         return new Response("Accepted parameters: id, name, search", {status: 400})
     }
-    return new Response(JSON.stringify(result.value), {status: result.code, statusText: result.reason})
+    return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
 }
 
 export async function POST({ request, cookies }) {
@@ -22,7 +22,7 @@ export async function POST({ request, cookies }) {
   
     if (BODY.name == null) {return new Response("Please provide name in request body", {status: 400})}
     const RESULT = await Library.postTag(SESSION, String(BODY.name))
-    return new Response(JSON.stringify(RESULT.value), {status: RESULT.code, statusText: RESULT.reason})
+    return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
 }
 
 export async function DELETE({ request, cookies }) {
@@ -34,5 +34,5 @@ export async function DELETE({ request, cookies }) {
     }
   
     const RESULT = await Library.deleteTag(SESSION, BODY.id)
-    return new Response(JSON.stringify(RESULT.value), {status: RESULT.code, statusText: RESULT.reason})
+    return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
   }

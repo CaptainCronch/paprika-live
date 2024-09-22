@@ -1,6 +1,19 @@
+<script>
+	export let editing = false
+	export let text = ""
+
+	function handleKey(event) {
+		text = event.target.textContent
+	}
+</script>
+
 <div class="picture-frame">
-	<main>
-		<slot/>
+	<main contenteditable={editing} on:keyup={handleKey}>
+		{#if !editing}
+			<slot/>
+		{:else}
+			Start typing HTML here!
+		{/if}
 	</main>
 </div>
 

@@ -15,7 +15,7 @@ export async function GET({ cookies, url }) {
       default:
         return new Response("Accepted parameters: id, page_id, text (revision_id)", {status: 400})
     }
-    return new Response(JSON.stringify(result.value), {status: result.code, statusText: result.reason})
+    return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
 }
 
 export async function POST({ request, cookies }) {
@@ -27,5 +27,5 @@ export async function POST({ request, cookies }) {
   }
 
   const RESULT = await Library.postPage(SESSION, String(BODY.page_id), String(BODY.text))
-  return new Response(JSON.stringify(RESULT.value), {status: RESULT.code, statusText: RESULT.reason})
+  return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
 }

@@ -15,7 +15,7 @@ export async function GET({ cookies, url }) {
       default:
         return new Response("Accepted parameters: id, page_id, user_id", {status: 400})
     }
-    return new Response(JSON.stringify(result.value), {status: result.code, statusText: result.reason})
+    return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
 }
 
 export async function POST({ request, cookies }) {
@@ -29,7 +29,7 @@ export async function POST({ request, cookies }) {
     }
   
     const RESULT = await Library.postComment(SESSION, String(BODY.text), parseInt(BODY.parent), parseInt(BODY.page_id))
-    return new Response(JSON.stringify(RESULT.value), {status: RESULT.code, statusText: RESULT.reason})
+    return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
 }
 
 export async function DELETE({ request, cookies }) {
@@ -41,5 +41,5 @@ export async function DELETE({ request, cookies }) {
         return new Response("Please provide id and set_deleted in request body", {status: 400})
     }
     const RESULT = await Library.deleteComment(SESSION, parseInt(BODY.id), BODY.set_deleted == true)
-    return new Response(JSON.stringify(RESULT.value), {status: RESULT.code, statusText: RESULT.reason})
+    return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
 }

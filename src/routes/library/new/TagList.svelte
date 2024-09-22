@@ -62,6 +62,7 @@
 			tag.addEventListener("keydown", handleTagEnter)
 			tag.addEventListener("focusout", handleTagAccept)
 		} else {
+			tags.push(object)
 			tag.className = "tag"
 			tag.contentEditable = false
 			tag.textContent = symbol + object.name
@@ -81,6 +82,7 @@
 	}
 
 	function handleDeleteTag(event) { // deletes tag on click, and deletes previous comma
+		tags.splice(tags.findIndex(event.target.textContent.charAt(0) === symbol ? event.target.textContent.substring(1) : event.target.textContent), 1)
 		event.target.parentElement.remove()
 		if (tagList.length > 0) {
 			let comma = tagList.item(tagList.length - 1).getElementsByTagName("span")
@@ -96,8 +98,11 @@
         tag.contentEditable = false
         tag.addEventListener("click", handleDeleteTag)
         if (tag.textContent.charAt(0) !== symbol) {
+			tags.push({name: tag.textContent})
             tag.textContent = symbol + tag.textContent
-        }
+        } else {
+			tags.push({name: tag.textContent.substring(1)})
+		}
     }
 </script>
 
