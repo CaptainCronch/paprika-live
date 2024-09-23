@@ -82,7 +82,7 @@
 	}
 
 	function handleDeleteTag(event) { // deletes tag on click, and deletes previous comma
-		tags.splice(tags.findIndex(event.target.textContent.charAt(0) === symbol ? event.target.textContent.substring(1) : event.target.textContent), 1)
+		tags.splice(tags.indexOf(event.target.textContent.charAt(0) === symbol ? event.target.textContent.substring(1) : event.target.textContent), 1)
 		event.target.parentElement.remove()
 		if (tagList.length > 0) {
 			let comma = tagList.item(tagList.length - 1).getElementsByTagName("span")
