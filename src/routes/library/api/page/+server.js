@@ -46,8 +46,8 @@ export async function POST({ request, cookies }) {
           BODY.text == null) {
       return new Response("Please provide title, editors, viewers, folder (nullable), tags, is_open, is_private, and text in request body", {status: 400})
   }
-
-  const RESULT = await Library.postPage(SESSION, String(BODY.title), BODY.editors, BODY.viewers, parseInt(BODY.folder), BODY.tags, BODY.is_open == true, BODY.is_private == true, String(BODY.text))
+  
+  const RESULT = await Library.postPage(SESSION, String(BODY.title), BODY.editors.map(x => {x.id}), BODY.viewers.map(x => {x.id}), parseInt(BODY.folder), BODY.tags.map(function(x) {return x.name}), String(BODY.text), BODY.is_open == true, BODY.is_private == true)
   return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
 }
 

@@ -66,9 +66,13 @@ page_tag: denotes what tags are in each page.
 
 export async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderID, tags, content, isOpen, isPrivate) {
     const USER_ID = await validateSession(sessionID)
-    // if (!USER_ID) {return new ReturnResult(false, 401, "Invalid session ID", sessionID)}
-    if (getPageIDFromTitle(pageTitle) === undefined) {return new ReturnResult(false, 400, "Name taken", pageTitle)}
-    if (folderID != null && !validateFolderEditAuthorization(folderID, USER_ID, false)) {return new ReturnResult(false, 403, "Unauthorized to add page to this folder")}
+    if (!USER_ID) {return new ReturnResult(false, 401, "Invalid session ID", sessionID)}
+    if (getPageIDFromTitle(pageTitle) !== undefined) {return new ReturnResult(false, 400, "Name taken", pageTitle)}
+
+    if (!isNil(folderID)) {
+        if (!validateFolder(folderID)) {return new ReturnResult(false, 404, "Folder does not exist", folderID)}
+        if (!validateFolderEditAuthorization(folderID, USER_ID, false)) {return new ReturnResult(false, 403, "Unauthorized to add page to this folder", folderID)}
+    }
 
     let unvalidatedUser
     allowedEditors.forEach(editor => {if (!validateUser(editor)) {unvalidatedUser = editor}})
@@ -88,7 +92,7 @@ export async function postPage(sessionID, pageTitle, allowedEditors, allowedView
     })
 
     let dateTime = time()
-    let pageID =  DB.prepare(`INSERT INTO page (title, date, folder_id, is_deleted, is_open, is_private, secret_code) VALUES(?, ?, ?, 0, ?, ?);`)
+    let pageID =  DB.prepare(`INSERT INTO page (title, date, folder_id, is_deleted, is_open, is_private, secret_code) VALUES(?, ?, ?, 0, ?, ?, ?);`)
             .run(pageTitle, dateTime, folderID, isOpen ? 1 : 0, isPrivate ? 1 : 0, generateRandomString(SECRET_CHARACTERS, SECRET_LENGTH)).lastInsertRowid
 
     editorIDs.forEach(editorID => {
@@ -931,6 +935,8 @@ export function logoutUser(sessionID) {
 
 export function time() {return new Date().getTime()}
 
+export function isNil(input) {return (input !== null && input !== undefined)} // true if value is not null / undefined
+
 export async function validateSession(sessionID) { // false if sid does not exist or expired, returns user_id otherwise
     if (sessionID == null) {return false}
     const SESSION_QUERY = DB.prepare(`SELECT user_id, session_id, session_expiration FROM user WHERE session_id = ?;`).get(sessionID)
@@ -941,14 +947,14 @@ export async function validateSession(sessionID) { // false if sid does not exis
 }
 
 export function validateUserAdmin(userID) { // false if user is NOT admin
-    if (userID == null) {return false}
+    if (userID == null || !userID) {return false}
     const RESULT = DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`)
     if (RESULT === undefined) {return false}
     return RESULT.get(userID).is_admin === 1 ? true : false
 }
 
 export function validateUserOwner(userID) { // false if user is NOT owner
-    if (userID == null) {return false}
+    if (userID == null || !userID) {return false}
     const RESULT = DB.prepare(`SELECT user_id, is_owner FROM user WHERE user_id = ?;`)
     if (RESULT === undefined) {return false}
     return RESULT.get(userID).is_owner === 1 ? true : false
@@ -965,7 +971,7 @@ export function validatePage(pageID) { // false if page does NOT exist
 }
 
 export function validatePageEditAuthorization(pageID, userID, isCritical) { // false if page is deleted (if user is not author) or user is not page creator or page editor or admin (on a closed page). isCritical = true means return false if not creator or admin (no editor or open)
-    if (userID == null) {return false}
+    if (userID == null || !userID) {return false}
     const PAGE_RESULTS = DB.prepare(`SELECT page_id, user_id, is_open, is_deleted FROM page WHERE page_id = ?;`).get(pageID)
 
     const USER_RESULTS = DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`).get(userID)
@@ -983,7 +989,7 @@ export function validatePageEditAuthorization(pageID, userID, isCritical) { // f
 
 export function validatePageViewAuthorization(pageID, userID) { // false if page is deleted (if user is not author) or user is not page creator or page editor or admin or null (on a private page)
     const PAGE_RESULTS = DB.prepare(`SELECT page_id, user_id, is_private, is_deleted FROM page WHERE page_id = ?;`).get(pageID)
-    if (userID == null && PAGE_RESULTS.is_private == 0 && PAGE_RESULTS.is_deleted == 0) {return true}
+    if ((userID == null || !userID) && PAGE_RESULTS.is_private == 0 && PAGE_RESULTS.is_deleted == 0) {return true}
     else if (userID == null) {return false}
     const USER_RESULTS = DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`).get(userID)
 
@@ -1009,11 +1015,12 @@ export function validateFolderName(folderName, parentID) { // false if folder na
 }
 
 export function validateFolderEditAuthorization(folderID, userID, isCritical) { // false if user is NOT creator of folder OR admin AND parent folder is not open (if noncritical edit)
-    if (userID == null) {return false}
-    if (DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`).get(userID).is_admin === 1) {return true}
+    if (folderID === null) {return true} // anyone can add to root folder
     let result = DB.prepare(`SELECT folder_id, user_id, parent FROM folder WHERE folder_id = ?;`).get(folderID)
-    if (result === undefined) {return true}
     if (!isCritical && DB.prepare(`SELECT folder_id, is_open FROM folder WHERE folder_id = ?;`).get(result.parent).is_open) {return true}
+    if (userID == null || !userID) {return false}
+    if (DB.prepare(`SELECT user_id, is_admin FROM user WHERE user_id = ?;`).get(userID).is_admin === 1) {return true}
+    if (result === undefined) {return true}
     return userID === result.user_id
 }
 
@@ -1038,11 +1045,13 @@ export function getUserIDFromName(userName) { // undefined if user does NOT exis
 }
 
 export function validateUser(userID) { // false if user does NOT exist
+    if (userID == null || !userID) {return false}
     let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM user WHERE user_id = ? COLLATE NOCASE);`).get(userID)
     return result[`EXISTS(SELECT 1 FROM user WHERE user_id = ?)`] === 1;
 }
 
 export function validateWholeComment(content, parentCommentID, pageID, authorID) { // false if comment exists with same content, parent, page, and author
+    if (authorID == null || !authorID) {return false}
     let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM comment WHERE text = ? AND parent = ? AND page_id = ? AND user_id = ?);`)
             .get(content, parentCommentID, pageID, authorID)
     return result[`EXISTS(SELECT 1 FROM comment WHERE text = ? AND parent = ? AND page_id = ? AND user_id = ?)`] === 0;
