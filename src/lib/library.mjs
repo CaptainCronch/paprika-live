@@ -7,9 +7,9 @@ export const DB = new Database(LIBRARY_PATH/*, options*/);
 DB.pragma('journal_mode = WAL');
 DB.pragma('foreign_keys = TRUE');
 
-const USERNAME_REGEX = /^[\w-]+$/
+const USERNAME_REGEX = /^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_]+$/
 const USERNAME_MAX_LENGTH = 24
-const PASSWORD_REGEX = /^[\w~\`!@#$%^&*()\-+={[}\]|\\:;"'<,>.?/]+$/
+const PASSWORD_REGEX = /^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~\`!@#$%^&*()_\-+={[}\]|\\:;"'<,>.?/]+$/
 const PASSWORD_MIN_LENGTH = 6
 
 const SECRET_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789" // base58

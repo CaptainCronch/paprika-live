@@ -23,6 +23,11 @@
     }
 </script>
 
+<svelte:head>
+    <title>Register</title>
+    <meta name="description" content="Create new user"/>
+</svelte:head>
+
 <div class="form" bind:this={form}>
     <input type="text" name="username" id="username" placeholder="username" bind:value={username}>
     <input type="text" name="password" id="password" placeholder="password" bind:value={password}>
