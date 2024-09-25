@@ -15,7 +15,7 @@ export async function GET({ cookies, url }) {
       default:
         return new Response("Accepted parameters: id, name, search", {status: 400})
     }
-    return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
+    return new Response((Math.floor(result.code / 200) === 1 ? "" : result.reason + ": ") + JSON.stringify(result.value), {status: result.code})
 }
 
 export async function POST({ request }) {

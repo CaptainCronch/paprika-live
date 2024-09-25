@@ -29,3 +29,7 @@ h1 {
 	font-size: 2.5em;
 	font-family: var(--font-heading)
 }
+
+button {
+	cursor: pointer;
+}

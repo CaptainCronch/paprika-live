@@ -65,7 +65,7 @@
 <style>
     .extra-info {
 		box-shadow: 0px 10px 20px 10px rgb(0,0,0);
-		background-image: url("$lib/images/striped-paper-texture.jpg");
+		background-image: url("$lib/images/striped-paper-texture-cropped-seamless.jpg");
         background-size: 25em;
 		border-radius: 3px;
         padding: 1.5em 1.5em;

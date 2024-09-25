@@ -15,6 +15,8 @@
         if (event.key === "Enter") {
             event.preventDefault()
         } else {
+            if (event.target.value.length === 0) {return}
+
             let response = await fetch("/library/api/user?search=" + event.target.value)
             if (response.ok) {
                 results = await response.json()
@@ -26,6 +28,7 @@
 
     /** @param {Event} event */
     function handleClick(event) {
+        console.log(event.target.id)
         dispatch("closebox", results[parseInt(event.target.id)])
     }
 </script>

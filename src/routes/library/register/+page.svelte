@@ -15,6 +15,7 @@
 		})
         if (response.ok) {
 			alert("User successfully created!")
+            location.href = "/library"
 		} else {
             form.style.left = "0em"
 			let body = await response.text()
@@ -41,10 +42,9 @@
         font-size: 2.5em;
         padding: 1rem 2rem;
         font-weight: 500;
-        background-color: var(--beige);
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
+        background-color: white;
+        border: 5px solid #089c8a;
+        border-radius: 20px;
     }
 
     input[type="text"] {
@@ -53,16 +53,17 @@
         transition: all 0.2s;
     }
 
+    input[type="text"]:focus {
+        outline: 5px solid #089c8a;
+        border-color: #089c8a;
+        border-style: solid;
+        border-radius: 5px;
+    }
+
     #username {
         top: 190px;
         left: 30px;
         width: 350px;
-    }
-
-    input[type="text"]:focus {
-        outline: 5px solid #089c8a;
-        border: none;
-        border-radius: 5px;
     }
 
     #password {

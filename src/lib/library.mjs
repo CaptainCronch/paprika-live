@@ -7,7 +7,7 @@ export const DB = new Database(LIBRARY_PATH/*, options*/);
 DB.pragma('journal_mode = WAL');
 DB.pragma('foreign_keys = TRUE');
 
-const USERNAME_REGEX = /^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_]+$/
+const USERNAME_REGEX = /^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\-_]+$/
 const USERNAME_MAX_LENGTH = 24
 const PASSWORD_REGEX = /^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~\`!@#$%^&*()_\-+={[}\]|\\:;"'<,>.?/]+$/
 const PASSWORD_MIN_LENGTH = 6
@@ -161,7 +161,7 @@ export async function postComment(sessionID, content, parentCommentID = null, pa
 
 export async function postUser(name, password) {
     if (name.length > USERNAME_MAX_LENGTH) {return new ReturnResult(false, 400, "Username too long", name.length)}
-    if (name.match(USERNAME_REGEX == null)) {return new ReturnResult(false, 400, "Invalid username character(s)", "Valid characters are alphanumeric and -_")}
+    if (name.match(USERNAME_REGEX) == null) {return new ReturnResult(false, 400, "Invalid username character(s)", "Valid characters are alphanumeric and -_")}
     if (getUserIDFromName(name) !== undefined) {return new ReturnResult(false, 400, "Name taken", name)}
     if (password.length < PASSWORD_MIN_LENGTH) {return new ReturnResult(false, 400, "Password not long enough", password.length)}
     if (password.match(PASSWORD_REGEX) == null) {return new ReturnResult(false, 400, "Invalid password character(s)", `Valid characters are alphanumeric and ~\`!@#$%^&*()_\-+={[}\]|\\:;"'<,>.?/`)}
@@ -504,11 +504,10 @@ export async function getUserByName(sessionID, targetName) {
 export async function getManyUsersByNamePattern(sessionID, pattern) {
     const RESULTS = DB.prepare(`SELECT user_id, name FROM user WHERE name LIKE '%' || ? || '%';`).all(pattern)
     if (RESULTS.length < 1) {return new ReturnResult(false, 404, "No users matching title pattern found", pattern)}
-
     const USER_ID = await validateSession(sessionID)
     
-    let userIDs = []
-    RESULTS.forEach(element => {userIDs.push(element.user_id)})
+    let userIDs = RESULTS.map(x => x.user_id)
+    // RESULTS.forEach(element => {userIDs.push(element.user_id)})
 
     let outputs = []
     for (let i = 0; i < userIDs.length; i++) {
@@ -1047,7 +1046,7 @@ export function getUserIDFromName(userName) { // undefined if user does NOT exis
 export function validateUser(userID) { // false if user does NOT exist
     if (userID == null || !userID) {return false}
     let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM user WHERE user_id = ? COLLATE NOCASE);`).get(userID)
-    return result[`EXISTS(SELECT 1 FROM user WHERE user_id = ?)`] === 1;
+    return result[`EXISTS(SELECT 1 FROM user WHERE user_id = ? COLLATE NOCASE)`] === 1;
 }
 
 export function validateWholeComment(content, parentCommentID, pageID, authorID) { // false if comment exists with same content, parent, page, and author
