@@ -35,6 +35,7 @@
 	}
 
 	function handleCloseBox(event) {
+		console.log(event.detail)
 		if (event.detail != null) {addTag(event.detail)}
 		searching = false
 	}

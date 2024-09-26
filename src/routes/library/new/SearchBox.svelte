@@ -8,7 +8,7 @@
 
     let value
     function handleFocusOut() {
-        dispatch("closebox", null)
+        dispatch("closebox", selectedUser)
     }
 
     async function handleKey(event) {
@@ -26,6 +26,15 @@
         }
     }
 
+    let selectedUser = null
+    function handleSelect(event) {
+        selectedUser = results[parseInt(event.target.id)]
+    }
+
+    function handleUnselect() {
+        selectedUser = null
+    }
+
     /** @param {Event} event */
     function handleClick(event) {
         console.log(event.target.id)
@@ -34,10 +43,9 @@
 </script>
 
 <div class="relative">
-
     <div class="search-container">
         {#each results as result, i}
-            <button class="result" id={i} on:click={handleClick}>{symbol + result.name}</button>
+            <button class="result" id={i} on:click={handleClick} on:mouseover={handleSelect} on:focus={handleSelect} on:mouseout={handleUnselect} on:blur={handleUnselect}>{symbol + result.name}</button>
         {/each}
         <label for="search">{symbol}</label><input type="text" name="search" id="search" on:focusout={handleFocusOut} on:keyup={handleKey} bind:value placeholder="username">
     </div>
