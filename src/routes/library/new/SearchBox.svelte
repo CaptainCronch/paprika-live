@@ -22,7 +22,7 @@
         } else {
             if (event.target.value.length === 0) {return}
 
-            let response = await fetch("/library/api/user?search=" + event.target.value)
+            let response = await fetch("/library/api/user?search=" + event.target.value, {credentials: 'same-origin'})
             if (response.ok) {
                 results = await response.json()
             } else {

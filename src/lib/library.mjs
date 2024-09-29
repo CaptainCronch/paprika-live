@@ -63,15 +63,18 @@ page_tag: denotes what tags are in each page.
 */
 
 //#region POST FUNCTIONS
-
-export async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderID, tags, content, isOpen, isPrivate) {
+// page_id, title, date, user_id, folder_id, is_deleted, is_open, is_private, secret_code
+export async function postPage(sessionID, pageTitle, allowedEditors, allowedViewers, folderName, tags, content, isOpen, isPrivate) {
     const USER_ID = await validateSession(sessionID)
     if (!USER_ID) {return new ReturnResult(false, 401, "Invalid session ID", sessionID)}
     if (getPageIDFromTitle(pageTitle) !== undefined) {return new ReturnResult(false, 400, "Name taken", pageTitle)}
 
+    let folderID = getFolderIDFromName(folderName)
     if (!isNil(folderID)) {
-        if (!validateFolder(folderID)) {return new ReturnResult(false, 404, "Folder does not exist", folderID)}
+        if (!validateFolder(folderID)) {return new ReturnResult(false, 404, "Folder does not exist", folderName)}
         if (!validateFolderEditAuthorization(folderID, USER_ID, false)) {return new ReturnResult(false, 403, "Unauthorized to add page to this folder", folderID)}
+    } else {
+        folderID = null
     }
 
     let unvalidatedUser
@@ -92,15 +95,15 @@ export async function postPage(sessionID, pageTitle, allowedEditors, allowedView
     })
 
     let dateTime = time()
-    let pageID =  DB.prepare(`INSERT INTO page (title, date, folder_id, is_deleted, is_open, is_private, secret_code) VALUES(?, ?, ?, 0, ?, ?, ?);`)
-            .run(pageTitle, dateTime, folderID, isOpen ? 1 : 0, isPrivate ? 1 : 0, generateRandomString(SECRET_CHARACTERS, SECRET_LENGTH)).lastInsertRowid
-
-    editorIDs.forEach(editorID => {
-        DB.prepare(`INSERT INTO editor_page (user_id, page_id) VALUES(?, ?);`).run(parseInt(editorID), pageID)
+    let pageID =  DB.prepare(`INSERT INTO page (title, date, user_id, folder_id, is_deleted, is_open, is_private, secret_code) VALUES(?, ?, ?, ?, 0, ?, ?, ?);`)
+            .run(pageTitle, dateTime, USER_ID, folderID, isOpen ? 1 : 0, isPrivate ? 1 : 0, generateRandomString(SECRET_CHARACTERS, SECRET_LENGTH)).lastInsertRowid
+    
+    allowedEditors.forEach(editorID => {
+        DB.prepare(`INSERT INTO editor_page (user_id, page_id) VALUES(?, ?);`).run(editorID, pageID)
     })
 
-    viewerIDs.forEach(viewerID => {
-        DB.prepare(`INSERT INTO viewer_page (user_id, page_id) VALUES(?, ?);`).run(parseInt(viewerID), pageID)
+    allowedViewers.forEach(viewerID => {
+        DB.prepare(`INSERT INTO viewer_page (user_id, page_id) VALUES(?, ?);`).run(viewerID, pageID)
     })
 
     tagIDs.forEach(tagID => {
@@ -934,7 +937,7 @@ export function logoutUser(sessionID) {
 
 export function time() {return new Date().getTime()}
 
-export function isNil(input) {return (input !== null && input !== undefined)} // true if value is not null / undefined
+export function isNil(input) {return (input === null || input === undefined)} // true if value is null / undefined
 
 export async function validateSession(sessionID) { // false if sid does not exist or expired, returns user_id otherwise
     if (sessionID == null) {return false}
@@ -1023,7 +1026,8 @@ export function validateFolderEditAuthorization(folderID, userID, isCritical) { 
     return userID === result.user_id
 }
 
-export function validateFolder(folderID) { // false if folder does NOT exist
+export function validateFolder(folderID) { // false if folder does NOT exist (true if null)
+    if (folderID === null) {return true}
     let result = DB.prepare(`SELECT EXISTS(SELECT 1 FROM folder WHERE folder_id = ?);`).get(folderID)
     return result['EXISTS(SELECT 1 FROM folder WHERE folder_id = ?)'] === 1;
 }
@@ -1085,7 +1089,7 @@ const SETUP_TABLES = [
             title TEXT NOT NULL UNIQUE,
             date TEXT NOT NULL,
             user_id INTEGER NOT NULL,
-            folder_id INTEGER NOT NULL,
+            folder_id INTEGER,
             is_deleted INTEGER NOT NULL DEFAULT 0,
             is_open INTEGER NOT NULL DEFAULT 0,
             is_private INTEGER NOT NULL DEFAULT 0,

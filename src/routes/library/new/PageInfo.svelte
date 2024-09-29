@@ -27,8 +27,8 @@
             private: isPrivate,
             open: !isClosed,
             folder: folder,
-            editors: editors,
-            readers: readers,
+            editors: editors.map(x => x.userID),
+            readers: readers.map(x => x.userID),
         })
     }
 </script>

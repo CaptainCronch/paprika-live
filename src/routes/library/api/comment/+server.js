@@ -28,7 +28,7 @@ export async function POST({ request, cookies }) {
         return new Response("Please provide text, parent (comment_id) (nullable), and page_id in request body", {status: 400})
     }
   
-    const RESULT = await Library.postComment(SESSION, String(BODY.text), parseInt(BODY.parent), parseInt(BODY.page_id))
+    const RESULT = await Library.postComment(SESSION, String(BODY.text), parseInt(BODY.parent), BODY.page_id === null ? null : parseInt(BODY.page_id))
     return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
 }
 

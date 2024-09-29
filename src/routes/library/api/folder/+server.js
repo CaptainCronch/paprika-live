@@ -26,7 +26,7 @@ export async function POST({ request, cookies }) {
         return new Response("Please provide name, parent (folder_id) (nullable), and is_open in request body", {status: 400})
     }
   
-    const RESULT = await Library.postFolder(SESSION, String(BODY.name), parseInt(BODY.parent), BODY.is_open == true)
+    const RESULT = await Library.postFolder(SESSION, String(BODY.name), BODY.parent === null ? null : parseInt(BODY.parent), BODY.is_open == true)
     return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
 }
 
@@ -42,7 +42,7 @@ export async function PUT({ request, cookies }) {
     if (BODY.name != null) {
         result = await Library.putFolderName(SESSION, BODY.id, String(BODY.name))
     } else if (BODY.parent !== undefined) {
-        result = await Library.putFolderParent(SESSION, BODY.id, parseInt(BODY.parent))
+        result = await Library.putFolderParent(SESSION, BODY.id, BODY.parent === null ? null : parseInt(BODY.parent))
     } else if (BODY.is_open != null) {
         result = await Library.putFolderOpen(SESSION, BODY.id, BODY.is_open == true)
     } else {

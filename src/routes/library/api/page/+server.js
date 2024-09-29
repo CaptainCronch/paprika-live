@@ -46,8 +46,8 @@ export async function POST({ request, cookies }) {
           BODY.text == null) {
       return new Response("Please provide title, editors, viewers, folder (nullable), tags, is_open, is_private, and text in request body", {status: 400})
   }
-  
-  const RESULT = await Library.postPage(SESSION, String(BODY.title), BODY.editors.map(x => {x.id}), BODY.viewers.map(x => {x.id}), parseInt(BODY.folder), BODY.tags.map(function(x) {return x.name}), String(BODY.text), BODY.is_open == true, BODY.is_private == true)
+
+  const RESULT = await Library.postPage(SESSION, String(BODY.title), BODY.editors, BODY.viewers, BODY.folder, BODY.tags.map(function(x) {return x.name}), String(BODY.text), BODY.is_open == true, BODY.is_private == true)
   return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
 }
 
@@ -69,7 +69,7 @@ export async function PUT({ request, cookies }) {
   } else if (BODY.tags != null || BODY.tags.size > 0) {
     result = await Library.putPageTags(SESSION, BODY.id, BODY.tags)
   } else if (BODY.folder !== undefined) {
-    result = await Library.putPageFolder(SESSION, BODY.id, BODY.folder)
+    result = await Library.putPageFolder(SESSION, BODY.id, BODY.folder === null ? null : parseInt(BODY.folder))
   } else if (BODY.is_open != null) {
     result = await Library.putPageOpen(SESSION, BODY.id, BODY.is_open)
   } else if (BODY.is_private != null) {
