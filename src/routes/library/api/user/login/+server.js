@@ -10,11 +10,10 @@ export async function PUT({ request, cookies }) {
     }
 
     const RESULT = await Library.loginUser(BODY.name, BODY.password)
-
     if (RESULT.code === 201) {
-        return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code, headers: new Headers({
-            "Set-Cookie": `session=${JSON.stringify(RESULT.value)}; Expires=${new HttpDate(new Date().getTime()).toString()}; HttpOnly; Secure; SameSite=Strict`
+        return new Response(RESULT.reason + ": " + JSON.stringify(JSON.parse(RESULT.value).sessionID), {status: RESULT.code, headers: new Headers({
+            "Set-Cookie": `session=${JSON.parse(RESULT.value).sessionID}; Expires=${new HttpDate(JSON.parse(RESULT.value).expiration).toString()}; HttpOnly; Secure; SameSite=Strict`
         })})
     }
-    return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
+    return new Response(RESULT.reason + ": " + RESULT.value, {status: RESULT.code})
 }

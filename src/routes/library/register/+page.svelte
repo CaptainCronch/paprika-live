@@ -31,7 +31,7 @@
 
 <div class="form" bind:this={form}>
     <input type="text" name="username" id="username" placeholder="username" bind:value={username}>
-    <input type="text" name="password" id="password" placeholder="password" bind:value={password}>
+    <input type="password" name="password" id="password" placeholder="password" bind:value={password}>
 </div>
 <button id="register" on:click={handleSubmit}>Register</button>
 

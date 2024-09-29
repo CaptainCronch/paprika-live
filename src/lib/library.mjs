@@ -813,10 +813,10 @@ export async function loginUser(name, password) {
             let present = new Date(time())
             present.setDate(present.getDate() + 14)
 
-            DB.prepare(`INSERT INTO user (session_id, session_expiration) VALUES(?, ?));`)
-                    .run(sessionID, present.getTime())
+            DB.prepare(`UPDATE user SET session_id = ?, session_expiration = ? WHERE user_id = ?;`)
+                    .run(sessionID, present.getTime(), userID)
             
-            return new ReturnResult(true, 201, "Session created", sessionID)
+            return new ReturnResult(true, 201, "Session created", JSON.stringify({'sessionID': sessionID, 'expiration': present.getTime()}))
         } else {
             return new ReturnResult(false, 400, "Invalid password", "Please try again...")
         }

@@ -2,7 +2,6 @@
 	import ArticleFrame from "./ArticleFrame.svelte";
 	import InfoFrame from "./InfoFrame.svelte";
 	import PageInfo from "./PageInfo.svelte";
-	export let data;
 
 	let title
 	let tags
@@ -30,12 +29,19 @@
 			alert(body)
 		}
 	}
+
+	function handleBeforeUnload(event) {
+		event.preventDefault()
+		event.returnValue = true
+	}
 </script>
 
 <svelte:head>
 	<title>New Page</title>
 	<meta name="description" content="Create new page"/>
 </svelte:head>
+
+<svelte:window on:beforeunload={handleBeforeUnload}/>
 
 <ArticleFrame bind:text editing/>
 
@@ -44,11 +50,11 @@
 <PageInfo on:submit={handleSubmit}/>
 
 <style>
-	h1 {
+	/* h1 {
 		margin: 0;
 	}
 
 	p {
 		font-weight: 500;
-	}
+	} */
 </style>

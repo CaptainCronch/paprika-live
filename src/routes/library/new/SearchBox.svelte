@@ -1,8 +1,13 @@
 <script>
-    import { createEventDispatcher } from 'svelte';
+    import { createEventDispatcher, onMount } from 'svelte';
     const dispatch = createEventDispatcher();
 
     export let symbol = "@"
+
+    let search
+    onMount(() => {
+        search.focus()
+    })
 
     let results = []
 
@@ -47,7 +52,7 @@
         {#each results as result, i}
             <button class="result" id={i} on:click={handleClick} on:mouseover={handleSelect} on:focus={handleSelect} on:mouseout={handleUnselect} on:blur={handleUnselect}>{symbol + result.name}</button>
         {/each}
-        <label for="search">{symbol}</label><input type="text" name="search" id="search" on:focusout={handleFocusOut} on:keyup={handleKey} bind:value placeholder="username">
+        <label for="search">{symbol}</label><input bind:this={search} type="text" name="search" id="search" on:focusout={handleFocusOut} on:keyup={handleKey} bind:value placeholder="username">
     </div>
 </div>
 
