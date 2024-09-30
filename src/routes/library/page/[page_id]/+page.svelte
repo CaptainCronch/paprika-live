@@ -1,6 +1,4 @@
 <script>
-	import Navigation from '../../../Navigation.svelte';
-	import Library from '../../Library.svelte'
 	export let data;
 </script>
 
@@ -9,7 +7,6 @@
 	<meta name="description" content="Home page" />
 </svelte:head>
 
-<Library>
 <div class="picture-frame">
 	<main>
 		<h1>Welcome to the Library!</h1>
@@ -40,7 +37,6 @@
 	</aside>
 	<div class="bolt"></div>
 </div>
-</Library>
 
 <style>
 
