@@ -1,12 +1,51 @@
 <script>
+	import { onMount } from "svelte";
+
+    const colors = [
+        {main: "#95b087", light: "#a9c29c", dark: "#6a865a", name: "green"},
+        {main: "#e2e076", light: "#f5f3a3", dark: "#b3b146", name: "red"},
+        {main: "#e26f6f", light: "#ec8d8d", dark: "#b94545", name: "yellow"},
+        {main: "#716fe2", light: "#8e8ce6", dark: "#4644c4"},
+        {main: "#e26fb2", light: "#e68cc8", dark: "#c44493"}, // i forgot the rest of the names
+        {main: "#6fc7e2", light: "#a1d2ee", dark: "#3989ad"},
+        {main: "#e29d6f", light: "#e7b491", dark: "#ad6739"},
+        {main: "#eaeaf0", light: "#ffffff", dark: "#bab5c4", name: "white"},
+        {main: "#252529", light: "#4e4e4e", dark: "#100f14", name: "black"},
+    ]
+
+    let currentColors = []
+    let lights = [] // for some reason i cannot access an object property in svelte html... whole object or nada... its undefined for no reason... maybe its a string value inserting whatever thing like no expressions allowed only variables and functions or something
+    let darks = []
+    onMount(() => { // set a random color for each folder
+        currentColors = []
+        lights = []
+        darks = []
+        for (let index = 0; index < folders.length; index++) {
+            const RANDOM_COLOR = colors[randomInt(colors.length)]
+            currentColors.push(RANDOM_COLOR.main)
+            lights.push(RANDOM_COLOR.light)
+            darks.push(RANDOM_COLOR.dark) // so weird why svelte whyyy tell meee too bad i have no internet right now so i cant even look it up lol
+        }
+    })
+
     let pages = [{type: "page", name: "new page", id: 1}, {type: "page", name: "new page 2", id: 2}]
     let folders = [{type: "folder", name: "AWESOME folder for gangsters", id: 50}, {type: "folder", name: "awesome 2", id: 51}]
+
+    for (let index = 0; index < 21; index++) { // testing purposes
+        folders.push({type: "folder", name: "awesome 2", id: 51})
+    }
+
+    function randomInt(max) { // exclusive
+        return Math.floor(Math.random() * max);
+    }
 </script>
 
 <main>
     <div class="folders">
-        {#each folders as folder}
-            <a class="folder" href={`/library/browse/${folder.id}`}><span class="label">{folder.name}</span><span class="ring"><span class="hole"></span></span></a>
+        {#each folders as folder, i}
+            <a class="folder" href={`/library/browse/${folder.id}`}
+                style={`background-color:${currentColors[i]};border-right-color:${lights[i]};border-left-color:${darks[i]};`}
+                ><span class="label">{folder.name}</span><span class="ring"><span class="hole"></span></span></a>
         {/each}
     </div>
     <div class="pages">
@@ -20,7 +59,7 @@
     main {
         width: 80%;
         min-height: 30em;
-        background-image: linear-gradient(rgb(204, 204, 204), rgb(199, 199, 199)), 
+        background-image: linear-gradient(rgb(204, 204, 204), rgb(199, 199, 199)),
                 url("$lib/images/oak-12894-in-architextures.jpg");
         background-blend-mode: multiply;
         padding: 2em;
@@ -31,21 +70,33 @@
 
     .pages {
         display: grid;
-        margin-top: 1.5em;
+        margin-top: 2em;
+    }
+
+    .page {
+        display: inline;
+        font-size: 2em;
+        font-weight: 600;
+	    font-family: var(--font-heading);
+        color: var(--black);
+        background-image: url("$lib/images/linen.png");
+        background-size: 35em;
+        padding: 1em;
     }
 
     .folders {
         display: flex;
         justify-content: start;
-        gap: 1.5em;
+        gap: 2em;
+        flex-wrap: wrap;
     }
 
     .folder {
         height: 18em;
         padding: 1em 0.5em;
-        background-color: var(--olivine);
-        border-right: 3px solid rgb(169, 194, 156);
-        border-left: 3px solid rgb(106, 134, 90);
+        background-color: #eaeaf0;
+        border-right: 3px solid #ffffff;
+        border-left: 3px solid #bab5c4;
         border-radius: 5px;
         writing-mode: vertical-lr;
         white-space: nowrap;
@@ -56,7 +107,13 @@
         text-decoration: none;
         color: var(--black);
         font-weight: 500;
-        box-shadow: -2px 10px 20px 0px rgb(48, 48, 48);
+        box-shadow: -2px 10px 20px 0px #000000b4;
+        transition: all 0.2s;
+    }
+
+    .folder:hover {
+        scale: 1.05;
+        rotate: -1deg;
     }
 
     .label {
@@ -65,7 +122,7 @@
         background-color: white;
         padding: 1em;
         overflow: hidden;
-        text-overflow: "-";
+        text-overflow: ellipsis;
     }
 
     .ring {
