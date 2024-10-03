@@ -214,6 +214,7 @@ export async function getPageByID(sessionID, pageID, validatedUserID = null) { /
         title: DATA.title,
         date: DATA.date,
         authorID: DATA.user_id,
+        authorName: getUserByID(sessionID, DATA.user_id, userID).name,
         folderID: DATA.folder_id,
         isDeleted: DATA.is_deleted == 1,
         isOpen: DATA.is_open == 1,

@@ -28,7 +28,7 @@
         }
     })
 
-    let pages = [{type: "page", name: "new page", id: 1}, {type: "page", name: "new page 2", id: 2}]
+    let pages = [{type: "page", name: "New page that is really cool trust me plus it talks about game design and other things", id: 1, author: "captcronch"}/*, {type: "page", name: "new page 2", id: 2}*/]
     let folders = [{type: "folder", name: "AWESOME folder for gangsters", id: 50}, {type: "folder", name: "awesome 2", id: 51}]
 
     for (let index = 0; index < 21; index++) { // testing purposes
@@ -50,7 +50,7 @@
     </div>
     <div class="pages">
         {#each pages as page}
-            <a class="page" href={`/library/page/${page.id}`}>{page.name}</a>
+            <a class="page" href={`/library/page/${page.id}`}><span class="author">{"@"+page.author}</span><span class="title">{page.name}</span></a>
         {/each}
     </div>
 </main>
@@ -70,18 +70,36 @@
 
     .pages {
         display: grid;
+        grid-auto-flow: row dense;
         margin-top: 2em;
     }
 
-    .page {
-        display: inline;
+    .author {
+        display: block;
+        line-height: 1;
+        font-size: 0.9em;
+    }
+
+    .title {
+        display: block;
         font-size: 2em;
         font-weight: 600;
 	    font-family: var(--font-heading);
+        line-height: 1.2;
+        overflow: hidden;
+    }
+
+    .page {
         color: var(--black);
         background-image: url("$lib/images/linen.png");
         background-size: 35em;
-        padding: 1em;
+        padding: 1em 1.5em;
+        width: 20em;
+        min-height: 10em;
+        max-height: 15em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-decoration: none;
     }
 
     .folders {
@@ -111,7 +129,7 @@
         transition: all 0.2s;
     }
 
-    .folder:hover {
+    .folder:hover, .folder:focus {
         scale: 1.05;
         rotate: -1deg;
     }
