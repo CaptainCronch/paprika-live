@@ -9,7 +9,7 @@
         justify-content: center;
         align-items: start;
         gap: 3em;
-        padding: 10em 0;
+        padding: 7em 0;
         background-image: linear-gradient(rgb(10, 10, 10), 15rem, rgb(125, 125, 125)),
                 url('$lib/images/botanical-pattern.jpg');
         background-blend-mode: multiply;

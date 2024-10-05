@@ -27,9 +27,10 @@
 		width: 100%;
 		height: 100%;
 		margin: 0;
-		background-image: url("$lib/images/canvas-texture.avif");
-		background-size: 35em;
+		background-image: url("$lib/images/linen.png");
+		background-size: 50em;
 		pointer-events: auto;
+		box-shadow: inset 0px 0px 10px -5px #000000b4;
 	}
 
 	main::before{

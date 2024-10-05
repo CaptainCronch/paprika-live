@@ -5,8 +5,9 @@ export async function load({ fetch, params }) {
     if (response.ok) {
         page = await response.json()
     } else {
+        console.log(await response.text())
         // send a message to the user that something went wrong
-        page = {body: await response.json(), status: response.status, statusText: response.statusText}
+        // page = {body: await response.json(), status: response.status, statusText: response.statusText}
     }
     return {'page': page}
 }

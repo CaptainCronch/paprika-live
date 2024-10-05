@@ -71,6 +71,7 @@
 		tag.href = "#"
 		
 		tagContainer.appendChild(tag)
+		tag.focus()
 	}
     
 	/** @param {KeyboardEvent} event */

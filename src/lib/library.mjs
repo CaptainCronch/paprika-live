@@ -453,7 +453,7 @@ export async function getManyFoldersByNamePattern(pattern) {
 
 export async function getManyFoldersByParentID(parentID) {
     const FOLDERS = DB.prepare(`SELECT * FROM folder WHERE parent = ?;`).all(parentID)
-    if (FOLDERS.length < 1) {return new ReturnResult(false, 404, "No subfolders found")}
+    if (FOLDERS.length < 1) {return new ReturnResult(false, 404, "No subfolders found", parentID)}
 
     let output = []
     FOLDERS.forEach(element => {
@@ -468,6 +468,16 @@ export async function getManyFoldersByParentID(parentID) {
     })
 
     return new ReturnResult(true, 200, "Folders retrieved", output)
+}
+
+export async function getWholeFolderByParentID(sessionID, parentID) {
+    console.log(parentID)
+    const FOLDERS = await getManyFoldersByParentID(parentID)
+    if (!FOLDERS.okay) {return FOLDERS}
+    const PAGES = await getManyPagesByFolderID(sessionID, parentID)
+    if (!PAGES.okay) {return PAGES}
+
+    return {...FOLDERS, ...PAGES}
 }
 //#endregion
 
