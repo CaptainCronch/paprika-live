@@ -2,8 +2,6 @@
 	import { onMount } from "svelte";
     export let data;
 
-    console.log(data)
-
     const colors = [
         {main: "#95b087", light: "#a9c29c", dark: "#6a865a", name: "green"},
         {main: "#e2e076", light: "#f5f3a3", dark: "#b3b146", name: "yellow"},
@@ -16,9 +14,10 @@
         {main: "#252529", light: "#4e4e4e", dark: "#100f14", name: "black"},
     ]
 
-    let pages = [/*{type: "page", name: "New page that is really cool trust me plus it talks about game design and other things yeppers", id: 1, author: "cronch", tags: ["awe man theres no room left"]}, {type: "page", name: "some other page i guess. sigh", id: 1, author: "not-cronch", tags: ["whoa", "banger"]}*/]
-    let folders = [/*{type: "folder", name: "AWESOME folder for gangsters", id: 50}, {type: "folder", name: "awesome 2", id: 51}*/]
-
+    // console.log(JSON.stringify(data, false, 1))
+    let pages = data.contents.pages /*{type: "page", name: "New page that is really cool trust me plus it talks about game design and other things yeppers", id: 1, author: "cronch", tags: ["awe man theres no room left"]}, {type: "page", name: "some other page i guess. sigh", id: 1, author: "not-cronch", tags: ["whoa", "banger"]}]*/
+    let folders = data.contents.folders /*{type: "folder", name: "AWESOME folder for gangsters", id: 50}, {type: "folder", name: "awesome 2", id: 51}]*/
+    // console.log(pages)
     // for (let index = 0; index < 7; index++) { // testing purposes
     //     folders.push({type: "folder", name: `awesome folder ${index + 3}`, id: 51})
     //     pages.push({type: "page", name: `page number ${index + 2}!`, id: 5, author: "someone", tags: ["cool", "awesome", "beast mode"]})
@@ -83,7 +82,7 @@
     </div>
     <div class="pages" bind:this={grid}>
         {#each pages as page}
-            <a class="page" href={`/library/page/${page.id}`}><span class="author">{"@"+page.author}</span><span class="title">{page.name}</span><span class="tags">{#each page.tags as tag, index}<span>#{tag}</span>{#if index+1 !== page.tags.length}, {/if}{/each}</span></a>
+            <a class="page" href={`/library/page/${page.pageID}`}><span class="author">{"@"+page.authorName}</span><span class="title">{page.title}</span><span class="tags">{#each page.tagNames as tag, index}<span>#{tag}</span>{#if index+1 !== page.tagNames.length}, {/if}{/each}</span></a>
         {/each}
     </div>
 </main>

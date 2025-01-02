@@ -7,7 +7,7 @@ export const DB = new Database(LIBRARY_PATH/*, options*/);
 DB.pragma('journal_mode = WAL');
 DB.pragma('foreign_keys = TRUE');
 
-const USERNAME_REGEX = /^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\-_]+$/
+const USERNAME_REGEX = /^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789\-_.]+$/
 const USERNAME_MAX_LENGTH = 24
 const PASSWORD_REGEX = /^[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~\`!@#$%^&*()_\-+={[}\]|\\:;"'<,>.?/]+$/
 const PASSWORD_MIN_LENGTH = 6
@@ -476,7 +476,7 @@ export async function getWholeFolderByParentID(sessionID, parentID) {
     const PAGES = await getManyPagesByFolderID(sessionID, parentID)
     if (!PAGES.okay) {return PAGES}
 
-    return {...FOLDERS, ...PAGES}
+    return new ReturnResult(true, 200, "Folders and pages retrieved", {"folders": FOLDERS.value, "pages": PAGES.value})
 }
 //#endregion
 
