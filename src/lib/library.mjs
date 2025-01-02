@@ -281,7 +281,7 @@ export async function getManyPagesByTime(sessionID, time, before) {
 
 export async function getManyPagesByFolderID(sessionID, folderID) { // returns empty array if no pages are found
     if (!validateFolder(folderID)) {return new ReturnResult(false, 404, "Folder not found", folderID)}
-    return await getManyPagesByID(sessionID, DB.prepare(`SELECT page_id, folder_id FROM page WHERE folder_id = ?`).all(folderID))
+    return await getManyPagesByID(sessionID, DB.prepare(`SELECT page_id, folder_id FROM page WHERE folder_id IS ?`).all(folderID))
 }
 
 export async function getManyPagesByTagID(sessionID, tagID) {
