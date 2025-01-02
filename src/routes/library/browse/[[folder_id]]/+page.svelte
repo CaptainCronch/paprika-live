@@ -16,13 +16,13 @@
         {main: "#252529", light: "#4e4e4e", dark: "#100f14", name: "black"},
     ]
 
-    let pages = [{type: "page", name: "New page that is really cool trust me plus it talks about game design and other things yeppers", id: 1, author: "cronch", tags: ["awe man theres no room left"]}, {type: "page", name: "some other page i guess. sigh", id: 1, author: "not-cronch", tags: ["whoa", "banger"]}]
-    let folders = [{type: "folder", name: "AWESOME folder for gangsters", id: 50}, {type: "folder", name: "awesome 2", id: 51}]
+    let pages = [/*{type: "page", name: "New page that is really cool trust me plus it talks about game design and other things yeppers", id: 1, author: "cronch", tags: ["awe man theres no room left"]}, {type: "page", name: "some other page i guess. sigh", id: 1, author: "not-cronch", tags: ["whoa", "banger"]}*/]
+    let folders = [/*{type: "folder", name: "AWESOME folder for gangsters", id: 50}, {type: "folder", name: "awesome 2", id: 51}*/]
 
-    for (let index = 0; index < 7; index++) { // testing purposes
-        folders.push({type: "folder", name: `awesome folder ${index + 3}`, id: 51})
-        pages.push({type: "page", name: `page number ${index + 2}!`, id: 5, author: "someone", tags: ["cool", "awesome", "beast mode"]})
-    }
+    // for (let index = 0; index < 7; index++) { // testing purposes
+    //     folders.push({type: "folder", name: `awesome folder ${index + 3}`, id: 51})
+    //     pages.push({type: "page", name: `page number ${index + 2}!`, id: 5, author: "someone", tags: ["cool", "awesome", "beast mode"]})
+    // }
 
     let currentColors = []
     let lights = [] // for some reason i cannot access an object property in svelte html... whole object or nada... its undefined for no reason... maybe its a string value inserting whatever thing like no expressions allowed only variables and functions or something
@@ -131,7 +131,7 @@
 		border-right-color: #eee;
 		border-top-color: #ddd;
         box-shadow: -2px 10px 20px 0px #000000b4, inset 0px 0px 10px -5px #000000b4;
-        transition: all 0.2s;
+        transition: scale 0.2s;
     }
 
     .page:hover, .page:focus {

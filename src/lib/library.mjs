@@ -279,7 +279,7 @@ export async function getManyPagesByTime(sessionID, time, before) {
     return await getManyPagesByID(sessionID, results)
 }
 
-export async function getManyPagesByFolderID(sessionID, folderID) {
+export async function getManyPagesByFolderID(sessionID, folderID) { // returns empty array if no pages are found
     if (!validateFolder(folderID)) {return new ReturnResult(false, 404, "Folder not found", folderID)}
     return await getManyPagesByID(sessionID, DB.prepare(`SELECT page_id, folder_id FROM page WHERE folder_id = ?`).all(folderID))
 }
@@ -451,9 +451,9 @@ export async function getManyFoldersByNamePattern(pattern) {
     return new ReturnResult(true, 200, "Folders retrieved", output)
 }
 
-export async function getManyFoldersByParentID(parentID) {
+export async function getManyFoldersByParentID(parentID) { // returns empty array if no folders are found
     const FOLDERS = DB.prepare(`SELECT * FROM folder WHERE parent = ?;`).all(parentID)
-    if (FOLDERS.length < 1) {return new ReturnResult(false, 404, "No subfolders found", parentID)}
+    if (FOLDERS.length < 1) {return new ReturnResult(true, 200, "No subfolders found", [])}//return new ReturnResult(false, 404, "No subfolders found", parentID)}
 
     let output = []
     FOLDERS.forEach(element => {
@@ -471,7 +471,6 @@ export async function getManyFoldersByParentID(parentID) {
 }
 
 export async function getWholeFolderByParentID(sessionID, parentID) {
-    console.log(parentID)
     const FOLDERS = await getManyFoldersByParentID(parentID)
     if (!FOLDERS.okay) {return FOLDERS}
     const PAGES = await getManyPagesByFolderID(sessionID, parentID)

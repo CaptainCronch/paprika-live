@@ -7,5 +7,5 @@ export async function load({ fetch, params }) {
     } else {
         contents = {body: await response.text(), status: response.status, statusText: response.statusText}
     }
-    return contents
+    return {"contents": contents}
 }

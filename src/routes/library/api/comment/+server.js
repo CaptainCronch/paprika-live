@@ -15,7 +15,8 @@ export async function GET({ cookies, url }) {
       default:
         return new Response("Accepted parameters: id, page_id, user_id", {status: 400})
     }
-    return new Response(result.reason + ": " + JSON.stringify(result.value), {status: result.code})
+    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    return new Response(reason + JSON.stringify(result.value), {status: result.code})
 }
 
 export async function POST({ request, cookies }) {
@@ -29,7 +30,8 @@ export async function POST({ request, cookies }) {
     }
   
     const RESULT = await Library.postComment(SESSION, String(BODY.text), parseInt(BODY.parent), BODY.page_id === null ? null : parseInt(BODY.page_id))
-    return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
+    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    return new Response(reason + JSON.stringify(RESULT.value), {status: RESULT.code})
 }
 
 export async function DELETE({ request, cookies }) {
@@ -41,5 +43,6 @@ export async function DELETE({ request, cookies }) {
         return new Response("Please provide id and set_deleted in request body", {status: 400})
     }
     const RESULT = await Library.deleteComment(SESSION, parseInt(BODY.id), BODY.set_deleted == true)
-    return new Response(RESULT.reason + ": " + JSON.stringify(RESULT.value), {status: RESULT.code})
+    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    return new Response(reason + JSON.stringify(RESULT.value), {status: RESULT.code})
 }
