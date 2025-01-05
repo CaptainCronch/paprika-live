@@ -9,14 +9,14 @@ export async function PUT({ request, cookies }) {
         return new Response("Please provide name and password in request body", {status: 400})
     }
 
-    const RESULT = await Library.loginUser(BODY.name, BODY.password)
-    if (RESULT.code === 201) {
+    let result = await Library.loginUser(BODY.name, BODY.password)
+    if (result.code === 201) {
         let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
-    return new Response(reason + JSON.stringify(JSON.parse(RESULT.value).sessionID), {status: RESULT.code, headers: new Headers({
-            "Set-Cookie": `session=${JSON.parse(RESULT.value).sessionID}; Expires=${new HttpDate(JSON.parse(RESULT.value).expiration).toString()}; HttpOnly; Secure; SameSite=Strict; Path=/`,
+    return new Response(reason + JSON.stringify(JSON.parse(result.value).sessionID), {status: result.code, headers: new Headers({
+            "Set-Cookie": `session=${JSON.parse(result.value).sessionID}; Expires=${new HttpDate(JSON.parse(result.value).expiration).toString()}; HttpOnly; Secure; SameSite=Strict; Path=/`,
             "Access-Control-Expose-Headers": 'Set-Cookie',
         })})
     }
     let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
-    return new Response(reason + RESULT.value, {status: RESULT.code})
+    return new Response(reason + result.value, {status: result.code})
 }
