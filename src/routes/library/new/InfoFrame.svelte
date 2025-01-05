@@ -1,23 +1,23 @@
 <script>
 	import TagList from "./TagList.svelte";
 
-    export let author = {id: 0, name: "your username here"}
+    export let author = {id: 0, name: "you"}
     export let title = "New Page"
     export let time = {creation: new Date().toISOString(), edited: new Date().toISOString()}
-    export let tags = [{id: 0, name: "new tag"}]
+    export let tags = [/*{id: 0, name: "new tag"}*/]
 	export let editing = false
 	// export let folders = [{name: "fold", id: 0}, {name: "fold", id: 0}]
-
-	function handleTitleInput(event) {
-		title = event.target.textContent
-	}
 </script>
 
 <div class="info-frame">
 	<div class="bolt"></div>
 	<aside>
 		<p id="info-author"><a class="tag" href="{editing ? "/library/new" : "/library/user/" + author.id}">@{author.name}</a></p>
-		<h2 id="info-title" contenteditable={editing} on:input={handleTitleInput}>{title}</h2>
+		{#if editing}
+			<h2 id="info-title" contenteditable=true bind:textContent={title}>{title}</h2>
+		{:else}
+			<h2 id="info-title">{title}</h2>
+		{/if}
 		<p id="info-subtitle"><span id="info-time" title="last modified {time.edited}">{time.creation}</span></p>
 		<!-- <p style="margin-top: 15px;">
 			{#each folders as folder, index}

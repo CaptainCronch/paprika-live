@@ -18,9 +18,9 @@
 </div>
 
 <style>
-    main * {
+    /* main * {
 		pointer-events: auto;
-	}
+	} */
 
 	main {
 		padding: 2.5em 3em;

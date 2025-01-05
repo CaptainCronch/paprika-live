@@ -12,6 +12,7 @@ export async function GET({ cookies, url }) {
       default:
         return new Response("Accepted search parameters: id (parent folder) (nullable)", {status: 400})
     }
+    console.log(result)
     let reason
     if (result.code % 200 < 100) { // if operation was successful then dont include the reason (so the response can be parsed as json)
       result = result.value
@@ -34,5 +35,6 @@ export async function GET({ cookies, url }) {
       code = result.code
       result = result.value
     }
+    console.log(reason + JSON.stringify(result))
     return new Response(reason + JSON.stringify(result), {status: code})
 }

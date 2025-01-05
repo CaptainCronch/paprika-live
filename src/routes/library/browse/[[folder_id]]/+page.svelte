@@ -2,6 +2,8 @@
 	import { onMount } from "svelte";
     export let data;
 
+    console.log(data)
+
     const colors = [
         {main: "#95b087", light: "#a9c29c", dark: "#6a865a", name: "green"},
         {main: "#e2e076", light: "#f5f3a3", dark: "#b3b146", name: "yellow"},

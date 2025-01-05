@@ -1,0 +1,28 @@
+.tag {
+    margin: 0;
+    padding: 0;
+    text-decoration: underline;
+    color: var(--black);
+    outline-width: 0px;
+    transition: all 0.1s;
+    overflow-wrap: break-word;
+}
+
+.tag:last-child {
+    margin-right: 10px;
+}
+
+.tag:hover {
+    outline: 3px solid var(--coyote);
+    border-radius: 5px;
+}
+
+.editing {
+    min-width: 25px;
+    outline: 3px solid var(--moss-green) !important;
+    border-radius: 5px;
+}
+
+.comma {
+    margin-right: 0.4em;
+}

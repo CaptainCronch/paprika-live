@@ -1,6 +1,7 @@
 <script>
     import { onMount } from "svelte";
 	import SearchBox from "./SearchBox.svelte";
+	import "./GlobalTags.css"
 
 	const TYPE = Object.freeze({
 		TAG: 0,
@@ -118,36 +119,7 @@
 </p>
 
 <style>
-    :global(.tag) {
-		margin: 0;
-		padding: 0;
-		text-decoration: underline;
-		color: var(--black);
-		outline-width: 0px;
-		transition: all 0.1s;
-		overflow-wrap: break-word;
-	}
-
-	:global(.tag:last-child) {
-		margin-right: 10px;
-	}
-
-	:global(.tag:hover) {
-		outline: 3px solid var(--coyote);
-		border-radius: 5px;
-	}
-
-    :global(.editing) {
-		min-width: 25px;
-		outline: 3px solid var(--moss-green) !important;
-		border-radius: 5px;
-	}
-
-	:global(.comma) {
-		margin-right: 0.4em;
-	}
-
-	.tag-container {
+    .tag-container {
 		margin: 0;
 		padding: 0;
 	}
