@@ -1,14 +1,14 @@
 <script>
 	import { onMount } from "svelte";
 
-    let cookies = []
+    let cookies = $state([])
     onMount(() => {
         cookies = Array(randomInt(15) + 10)
     })
 
-    let username
-    let password
-    let logged = false
+    let username = $state()
+    let password = $state()
+    let logged = $state(false)
     async function handleSubmit(event) { // name password
         if (logged) {moveCookie(); return}
 		let response = await fetch("/library/api/user/login", {
@@ -82,9 +82,9 @@
 	<meta name="description" content="Login user"/>
 </svelte:head>
 
-<!-- svelte-ignore a11y-click-events-have-key-events -->
-<!-- svelte-ignore a11y-no-static-element-interactions -->
-<div class="cookie-jar" on:click={jarClick}> <!-- ignore accessibility warnings because this is a minor purely visual and decorative interaction -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="cookie-jar" onclick={jarClick}> <!-- ignore accessibility warnings because this is a minor purely visual and decorative interaction -->
     {#each cookies as cookie, i}
         <div class="cookie-container" style={`top:${randomRange(-5, 5)}em; left:${randomRange(-4, 4)}em;`} bind:this={cookies[i]}>
             <div class={"cookie cookie" + (randomInt(4) + 1)} style={`rotate:${randomRange(0, 359)}deg; scale:${randomRange(0.8, 1.4)};`}>
@@ -97,9 +97,9 @@
 <div class="login-form">
     <input type="text" id="username" name="username" placeholder="username" bind:value={username}>
     <input type="password" id="password" name="password" placeholder="password" bind:value={password}>
-    <button id="login-submit" on:click={handleSubmit}>Login</button>
+    <button id="login-submit" onclick={handleSubmit}>Login</button>
     {#if logged}
-    <button on:click={() => {window.href = "/library"}}>Return</button>
+    <button onclick={() => {window.href = "/library"}}>Return</button>
     {/if}
 </div>
 

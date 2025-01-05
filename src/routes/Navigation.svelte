@@ -1,5 +1,12 @@
 <script>
 	import '$lib/css/styles.css';
+    /**
+     * @typedef {Object} Props
+     * @property {import('svelte').Snippet} [children]
+     */
+
+    /** @type {Props} */
+    let { children } = $props();
 </script>
 
 <nav>
@@ -8,7 +15,7 @@
     <a href="#"></a>
     <a href="#"></a>
 </nav>
-<slot></slot>
+{@render children?.()}
 
 <style>
     nav {

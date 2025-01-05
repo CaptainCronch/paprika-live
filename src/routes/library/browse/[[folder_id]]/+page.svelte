@@ -1,6 +1,6 @@
 <script>
 	import { onMount } from "svelte";
-    export let data;
+    let { data } = $props();
 
     console.log(data)
 
@@ -25,12 +25,12 @@
     //     pages.push({type: "page", name: `page number ${index + 2}!`, id: 5, author: "someone", tags: ["cool", "awesome", "beast mode"]})
     // }
 
-    let currentColors = []
-    let lights = [] // for some reason i cannot access an object property in svelte html... whole object or nada... its undefined for no reason... maybe its a string value inserting whatever thing like no expressions allowed only variables and functions or something
-    let darks = []
+    let currentColors = $state([])
+    let lights = $state([]) // for some reason i cannot access an object property in svelte html... whole object or nada... its undefined for no reason... maybe its a string value inserting whatever thing like no expressions allowed only variables and functions or something
+    let darks = $state([])
 
     /** @type {HTMLElement} */
-    let grid
+    let grid = $state()
     /** @type {HTMLCollectionOf<Element>} */
     let items
     let columns

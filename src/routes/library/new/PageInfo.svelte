@@ -5,8 +5,8 @@
     const dispatch = createEventDispatcher();
 
     /** @type HTMLDivElement */
-    let extraInfo
-    let dip
+    let extraInfo = $state()
+    let dip = $state()
     function handleClick() {
         if (extraInfo.style.bottom == "-0.5em") {
             extraInfo.style.bottom = -extraInfo.offsetHeight + "px"
@@ -17,11 +17,11 @@
         }
     }
 
-    let isPrivate = false
-    let isClosed = false
-    let folder = ""
-    let editors = []
-    let readers = []
+    let isPrivate = $state(false)
+    let isClosed = $state(false)
+    let folder = $state("")
+    let editors = $state([])
+    let readers = $state([])
     function handleSubmit() {
         dispatch("submit", {
             private: isPrivate,
@@ -34,7 +34,7 @@
 </script>
 
 <aside class="extra-info" bind:this={extraInfo} style="bottom: -0.5em;">
-    <button class="dip-button" on:click={handleClick}><svg class="dip" bind:this={dip} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M233.4 105.4c12.5-12.5 32.8-12.5 45.3 0l192 192c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L256 173.3 86.6 342.6c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3l192-192z"/></svg></button>
+    <button class="dip-button" onclick={handleClick}><svg class="dip" bind:this={dip} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M233.4 105.4c12.5-12.5 32.8-12.5 45.3 0l192 192c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L256 173.3 86.6 342.6c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3l192-192z"/></svg></button>
     {#if isPrivate}
         <p>Add editors:</p>
         <TagList editing="true" bind:tags={editors} type=1/> <!-- type 1 means this is a user taglist -->
@@ -59,7 +59,7 @@
         <label for="folder">Folder</label>
     </p>
     <br>
-    <button class="submit" on:click={handleSubmit}>Submit New Page</button>
+    <button class="submit" onclick={handleSubmit}>Submit New Page</button>
 </aside>
 
 <style>

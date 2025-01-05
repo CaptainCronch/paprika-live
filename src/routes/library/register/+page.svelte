@@ -1,8 +1,8 @@
 <script>
-    let username
-    let password
+    let username = $state()
+    let password = $state()
 
-    let form
+    let form = $state()
 
     async function handleSubmit() {
         form.style.left = "150em"
@@ -33,7 +33,7 @@
     <input type="text" name="username" id="username" placeholder="username" bind:value={username}>
     <input type="password" name="password" id="password" placeholder="password" bind:value={password}>
 </div>
-<button id="register" on:click={handleSubmit}>Register</button>
+<button id="register" onclick={handleSubmit}>Register</button>
 
 <style>
     #register {

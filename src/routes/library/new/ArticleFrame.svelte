@@ -1,6 +1,13 @@
 <script>
-	export let editing = false
-	export let text = ""
+	/**
+	 * @typedef {Object} Props
+	 * @property {boolean} [editing]
+	 * @property {string} [text]
+	 * @property {import('svelte').Snippet} [children]
+	 */
+
+	/** @type {Props} */
+	let { editing = false, text = $bindable(""), children } = $props();
 
 	function handleKey(event) {
 		text = event.target.textContent
@@ -8,9 +15,9 @@
 </script>
 
 <div class="picture-frame">
-	<main contenteditable={editing} on:keyup={handleKey}>
+	<main contenteditable={editing} onkeyup={handleKey}>
 		{#if !editing}
-			<slot/>
+			{@render children?.()}
 		{:else}
 			Start typing HTML here!
 		{/if}

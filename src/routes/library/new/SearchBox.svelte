@@ -2,16 +2,22 @@
     import { createEventDispatcher, onMount } from 'svelte';
     const dispatch = createEventDispatcher();
 
-    export let symbol = "@"
+    /**
+     * @typedef {Object} Props
+     * @property {string} [symbol]
+     */
 
-    let search
+    /** @type {Props} */
+    let { symbol = "@" } = $props();
+
+    let search = $state()
     onMount(() => {
         search.focus()
     })
 
-    let results = []
+    let results = $state([])
 
-    let value
+    let value = $state()
     function handleFocusOut() {
         dispatch("closebox", selectedUser)
     }
@@ -50,9 +56,9 @@
 <search class="relative">
     <div class="search-container">
         {#each results as result, i}
-            <button class="result" id={i} on:click={handleClick} on:mouseover={handleSelect} on:focus={handleSelect} on:mouseout={handleUnselect} on:blur={handleUnselect}>{symbol + result.name}</button>
+            <button class="result" id={i} onclick={handleClick} onmouseover={handleSelect} onfocus={handleSelect} onmouseout={handleUnselect} onblur={handleUnselect}>{symbol + result.name}</button>
         {/each}
-        <label for="search">{symbol}</label><input bind:this={search} type="text" name="search" id="search" on:focusout={handleFocusOut} on:keyup={handleKey} bind:value placeholder="username">
+        <label for="search">{symbol}</label><input bind:this={search} type="text" name="search" id="search" onfocusout={handleFocusOut} onkeyup={handleKey} bind:value placeholder="username">
     </div>
 </search>
 

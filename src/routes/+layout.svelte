@@ -1,8 +1,15 @@
 <script>
 import '$lib/css/styles.css';
+	/**
+	 * @typedef {Object} Props
+	 * @property {import('svelte').Snippet} [children]
+	 */
+
+	/** @type {Props} */
+	let { children } = $props();
 </script>
 
-<slot />
+{@render children?.()}
 
 <style>
 	

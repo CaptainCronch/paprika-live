@@ -3,9 +3,9 @@
 	import InfoFrame from "./InfoFrame.svelte";
 	import PageInfo from "./PageInfo.svelte";
 
-	let title
-	let tags
-	let text
+	let title = $state()
+	let tags = $state()
+	let text = $state()
 	let submitted = false
 
 	async function handleSubmit(event) { // editors viewers folder is_open is_private
@@ -41,7 +41,7 @@
 	<meta name="description" content="Create new page"/>
 </svelte:head>
 
-<svelte:window on:beforeunload={handleBeforeUnload}/>
+<svelte:window onbeforeunload={handleBeforeUnload}/>
 
 <ArticleFrame bind:text editing/>
 

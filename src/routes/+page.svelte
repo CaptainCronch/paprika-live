@@ -16,9 +16,9 @@ import Main from "./Main.svelte";
 
 <Main>
 {#each colors as color, i}
-<!-- svelte-ignore a11y-distracting-elements -->
+<!-- svelte-ignore a11y_distracting_elements -->
 <marquee class="right" behavior="alternate" direction="down" scrolldelay="{30 + i}" truespeed>
-    <!-- svelte-ignore a11y-distracting-elements -->
+    <!-- svelte-ignore a11y_distracting_elements -->
     <marquee class="left" behavior="alternate" direction="right" scrolldelay="{30 + i}" truespeed>
         <div class="block" style="background-color: {color};"></div>
     </marquee>

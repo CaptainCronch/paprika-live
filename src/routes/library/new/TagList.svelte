@@ -8,20 +8,26 @@
 		USER: 1,
 	})
 
-	export let type = TYPE.TAG
-    export let tags = []
-	export let editing = false
+	/**
+	 * @typedef {Object} Props
+	 * @property {any} [type]
+	 * @property {any} [tags]
+	 * @property {boolean} [editing]
+	 */
 
-	let searching = false
+	/** @type {Props} */
+	let { type = TYPE.TAG, tags = [], editing = false } = $props();
+
+	let searching = $state(false)
 	let symbol = type == TYPE.TAG ? "#" : "@"
 	let defaultName = type == TYPE.TAG ? "new tag" : "new user"
 
     /** @type Element */
-	let infoTags
+	let infoTags = $state()
 	/** @type HTMLCollection */
 	let tagList
 	/** @type Element */
-	let addButton
+	let addButton = $state()
 	onMount(() => {
 		tagList = infoTags.getElementsByClassName("tag-container") // does not include the add button
 	})
@@ -112,10 +118,10 @@
 <p id="info-tags" bind:this={infoTags}>
     {#each tags as tag, index}
         <span class="tag-container">
-            <a class="tag" href={editing ? "#" : "/library/tag/" + tag.id} on:click={handleDeleteTag} on:focusout={handleTagAccept}>{symbol + tag.name}</a>{#if index !== tags.length - 1}<span class="comma">, </span>{/if}
+            <a class="tag" href={editing ? "#" : "/library/tag/" + tag.id} onclick={handleDeleteTag} onfocusout={handleTagAccept}>{symbol + tag.name}</a>{#if index !== tags.length - 1}<span class="comma">, </span>{/if}
         </span>
     {/each}
-    {#if editing}<button class="add" on:click={handleAddTag} bind:this={addButton}>+</button>{/if}
+    {#if editing}<button class="add" onclick={handleAddTag} bind:this={addButton}>+</button>{/if}
 </p>
 
 <style>
