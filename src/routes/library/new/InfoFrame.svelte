@@ -13,11 +13,13 @@
 	/** @type {Props} */
 	let {
 		author = {id: 0, name: "you"},
-		title = $bindable("New Page"),
+		title = $bindable(),
 		time = {creation: new Date().toISOString(), edited: new Date().toISOString()},
-		tags = $bindable([/*{id: 0, name: "new tag"}*/]),
+		tags = $bindable(),
 		editing = false
 	} = $props();
+
+	tags = tags === undefined ? [] : tags
 	
 </script>
 
@@ -26,7 +28,7 @@
 	<aside>
 		<p id="info-author"><a class="tag" href="{editing ? "/library/new" : "/library/user/" + author.id}">@{author.name}</a></p>
 		{#if editing}
-			<h2 id="info-title" contenteditable=true bind:textContent={title}>{title}</h2>
+			<h2 id="info-title" contenteditable=true bind:textContent={title}>{title === undefined ? "New Page" : title}</h2>
 		{:else}
 			<h2 id="info-title">{title}</h2>
 		{/if}

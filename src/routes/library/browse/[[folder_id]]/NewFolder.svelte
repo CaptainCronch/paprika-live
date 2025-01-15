@@ -1,8 +1,7 @@
 <script>
-	import TagList from "./TagList.svelte";
-    import { createEventDispatcher } from 'svelte';
+    import { page } from '$app/state'
 
-    const dispatch = createEventDispatcher();
+    let { submit } = $props()
 
     /** @type HTMLDivElement */
     let extraInfo = $state()
@@ -17,49 +16,32 @@
         }
     }
 
-    let isPrivate = $state(false)
     let isClosed = $state(false)
-    let folder = $state("")
-    let editors = $state([])
-    let readers = $state([])
+    let name = $state("")
     function handleSubmit() {
-        dispatch("submit", {
-            private: isPrivate,
+        let parentID = page.url.pathname.split("/").filter(Boolean).pop()
+        if (parentID === undefined || parentID === "browse") {parentID = null}
+        submit({
             open: !isClosed,
-            folder: folder,
-            editors: editors.map(x => x.userID),
-            readers: readers.map(x => x.userID),
+            name: name,
+            parent: parentID
         })
     }
 </script>
 
 <aside class="extra-info" bind:this={extraInfo} style="bottom: -0.5em;">
     <button class="dip-button" onclick={handleClick}><svg class="dip" bind:this={dip} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.--><path d="M233.4 105.4c12.5-12.5 32.8-12.5 45.3 0l192 192c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L256 173.3 86.6 342.6c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3l192-192z"/></svg></button>
-    {#if isPrivate}
-        <p>Add editors:</p>
-        <TagList editing="true" bind:tags={editors} type=1/> <!-- type 1 means this is a user taglist -->
-        <br>
-    {/if}
-    {#if isClosed}
-        <p>Add viewers:</p>
-        <TagList editing="true" bind:tags={readers} type=1/> <!-- type 1 means this is a user taglist -->
-        <br>
-    {/if}
-    <p>
-        <input type="checkbox" name="private" id="private" bind:checked={isPrivate}>
-        <label for="private">Closed for public editing</label>
-    </p>
     <p>
         <input type="checkbox" name="closed" id="closed" bind:checked={isClosed}>
-        <label for="closed">Closed for public viewing</label>
+        <label for="closed">Closed for public editing</label>
     </p>
     
     <p>
-        <input type="text" name="folder" id="folder" bind:value={folder} placeholder="name">
+        <input type="text" name="folder" id="folder" bind:value={name} placeholder="name">
         <label for="folder">Folder</label>
     </p>
     <br>
-    <button class="submit" onclick={handleSubmit}>Submit New Page</button>
+    <button class="submit" onclick={handleSubmit}>Create New Folder</button>
 </aside>
 
 <style>

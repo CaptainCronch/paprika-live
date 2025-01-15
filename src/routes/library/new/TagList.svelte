@@ -3,7 +3,7 @@
 	import SearchBox from "./SearchBox.svelte";
 	import "./GlobalTags.css"
 
-	const TYPE = Object.freeze({
+	const TYPE = Object.freeze({ // enum
 		TAG: 0,
 		USER: 1,
 	})
@@ -16,7 +16,7 @@
 	 */
 
 	/** @type {Props} */
-	let { type = TYPE.TAG, tags = [], editing = false } = $props();
+	let { type = TYPE.TAG, tags = $bindable(), editing = false } = $props();
 
 	let searching = $state(false)
 	let symbol = type == TYPE.TAG ? "#" : "@"
@@ -47,7 +47,7 @@
 	}
 
 	function addTag(object) {
-		if (infoTags.getElementsByClassName("editing").length > 0) {return} // do nothing if tag already being edited
+		if (infoTags.getElementsByClassName("editing").length > 0) {console.log("there is a tag being edited"); return} // do nothing if tag already being edited
 
 		if (tagList.length > 0) { // only add comma if there is a previous element
 			let comma = document.createElement("span")

@@ -7,20 +7,16 @@
 	 */
 
 	/** @type {Props} */
-	let { editing = false, text = $bindable(""), children } = $props();
+	let { editing = false, text = $bindable() } = $props();
 
-	function handleKey(event) {
-		text = event.target.textContent
-	}
+	// function handleKey(event) {
+	// 	text = event.target.textContent
+	// }
 </script>
 
 <div class="picture-frame">
-	<main contenteditable={editing} onkeyup={handleKey}>
-		{#if !editing}
-			{@render children?.()}
-		{:else}
-			Start typing HTML here!
-		{/if}
+	<main contenteditable=true bind:textContent={text}>
+		{text === undefined ? "Start writing HTML here!" : text}
 	</main>
 </div>
 

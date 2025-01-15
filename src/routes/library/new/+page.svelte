@@ -43,9 +43,9 @@
 
 <svelte:window onbeforeunload={handleBeforeUnload}/>
 
-<ArticleFrame bind:text editing/>
+<ArticleFrame editing={true} bind:text/>
 
-<InfoFrame bind:title bind:tags editing/>
+<InfoFrame bind:title bind:tags editing={true}/>
 
 <PageInfo on:submit={handleSubmit}/>
 

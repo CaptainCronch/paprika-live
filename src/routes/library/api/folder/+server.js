@@ -13,7 +13,7 @@ export async function GET({ url }) {
       default:
         return new Response("Accepted parameters: id, parent (folder_id), search", {status: 400})
     }
-    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(result.value), {status: result.code,})
 }
 
@@ -26,9 +26,8 @@ export async function POST({ request, cookies }) {
             BODY.is_open == null) {
         return new Response("Please provide name, parent (folder_id) (nullable), and is_open in request body", {status: 400})
     }
-  
     let result = await Library.postFolder(SESSION, String(BODY.name), BODY.parent === null ? null : parseInt(BODY.parent), BODY.is_open == true)
-    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(result.value), {status: result.code})
 }
 
@@ -50,7 +49,7 @@ export async function PUT({ request, cookies }) {
     } else {
         return new Response("Please provide name, parent (folder_id) (nullable), or is_open in request body (id required)", {status: 400})
     }
-    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(result.value), {status: result.code})
 }
 
@@ -60,6 +59,6 @@ export async function DELETE({ request, cookies }) {
   
     if (BODY.id == null) {return new Response("Please provide id in request body", {status: 400})}
     let result = await Library.deleteFolder(SESSION, parseInt(BODY.id))
-    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(result.value), {status: result.code})
 }

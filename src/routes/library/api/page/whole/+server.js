@@ -13,6 +13,6 @@ export async function GET({ cookies, url }) {
       default:
         return new Response("Accepted search parameters: id, title", {status: 400})
     }
-    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(result.value), {status: result.code})
 }

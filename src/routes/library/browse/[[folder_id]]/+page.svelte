@@ -1,8 +1,7 @@
 <script>
 	import { onMount } from "svelte";
+    import NewFolder from "./NewFolder.svelte";
     let { data } = $props();
-
-    console.log(data)
 
     const colors = [
         {main: "#95b087", light: "#a9c29c", dark: "#6a865a", name: "green"},
@@ -19,6 +18,7 @@
     // console.log(JSON.stringify(data, false, 1))
     let pages = data.contents.pages /*{type: "page", name: "New page that is really cool trust me plus it talks about game design and other things yeppers", id: 1, author: "cronch", tags: ["awe man theres no room left"]}, {type: "page", name: "some other page i guess. sigh", id: 1, author: "not-cronch", tags: ["whoa", "banger"]}]*/
     let folders = data.contents.folders /*{type: "folder", name: "AWESOME folder for gangsters", id: 50}, {type: "folder", name: "awesome 2", id: 51}]*/
+    console.log(folders)
     // console.log(pages)
     // for (let index = 0; index < 7; index++) { // testing purposes
     //     folders.push({type: "folder", name: `awesome folder ${index + 3}`, id: 51})
@@ -72,12 +72,30 @@
     function randomInt(max) { // exclusive
         return Math.floor(Math.random() * max);
     }
+
+    async function handleSubmit(details) {
+		let response = await fetch("/library/api/folder", {
+			body: JSON.stringify({
+				'name': details.name,
+				'parent': details.parent,
+				'is_open': details.open,
+			}),
+			method: "POST",
+		})
+		if (response.ok) {
+			alert("Folder successfully created!")
+		} else {
+			let body = await response.text()
+			alert(body)
+		}
+	}
 </script>
 
+<NewFolder submit={details => {handleSubmit(details)}} />
 <main>
     <div class="folders">
         {#each folders as folder, i}
-            <a class="folder" href={`/library/browse/${folder.id}`}
+            <a class="folder" href={`/library/browse/${folder.folderID}`} target="_self" 
                 style={`background-color:${currentColors[i]};border-right-color:${lights[i]};border-left-color:${darks[i]};`}
                 ><span class="label">{folder.name}</span><span class="ring"><span class="hole"></span></span></a>
         {/each}

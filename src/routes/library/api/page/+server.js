@@ -29,7 +29,7 @@ export async function GET({ cookies, url }) {
       default:
         return new Response("Accepted parameters: id, title, search, user_id, username, before (date), after (date), folder, tag_id, tag_name", {status: 400})
     }
-    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(result.value), {status: result.code})
 }
 
@@ -49,7 +49,7 @@ export async function POST({ request, cookies }) {
   }
 
   let result = await Library.postPage(SESSION, String(BODY.title), BODY.editors, BODY.viewers, BODY.folder, BODY.tags.map(function(x) {return x.name}), String(BODY.text), BODY.is_open == true, BODY.is_private == true)
-  let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+  let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(result.value), {status: result.code})
 }
 
@@ -81,7 +81,7 @@ export async function PUT({ request, cookies }) {
   } else {
       return new Response("Please provide title, editors, viewers, folder (nullable), tags, is_open, is_private, or reset_secret_code in request body (id required)", {status: 400})
   }
-  let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+  let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(result.value), {status: result.code})
 }
 
@@ -94,6 +94,6 @@ export async function DELETE({ request, cookies }) {
   }
 
   let result = await Library.deleteUser(SESSION, parseInt(BODY.id), BODY.set_deleted == true)
-  let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+  let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(result.value), {status: result.code})
 }

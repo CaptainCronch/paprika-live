@@ -26,7 +26,7 @@ export async function POST({ request }) {
     }
 
     const RESULT = await Library.postUser(String(BODY.name), String(BODY.password))
-    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(RESULT.value), {status: RESULT.code})
 }
 
@@ -44,7 +44,7 @@ export async function PUT({ request, cookies }) {
     } else {
         return new Response("Please provide name, password, or is_admin in request body", {status: 400})
     }
-    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(result.value), {status: result.code})
 }
 
@@ -62,6 +62,6 @@ export async function DELETE({ request, cookies }) {
     } else {
         result = await Library.deleteUser(SESSION, BODY.id, BODY.set_deleted)
     }
-    let reason = result.code % 200 < 100 ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
+    let reason = result.code.toString()[0] == "2" ? "" : result.reason + ": " // if operation was successful then dont include the reason (so the response can be parsed as json)
     return new Response(reason + JSON.stringify(result.value), {status: result.code})
 }
